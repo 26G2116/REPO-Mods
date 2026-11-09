@@ -98,6 +98,9 @@ namespace MonsterTweaks
                 group.Bodies.Add(body);
                 Bodies[body] = new BodyState { Group = group, Parked = true, AllowSpawn = true };
                 parent.SetupDone = true;
+                // 本来の出現処理(OnSpawn)を通らないので「初回の出現済み」にしておく。
+                // これが立っていない敵がいると、EnemyDirector が全体の待機時間を進めない
+                parent.firstSpawnPointUsed = true;
                 var enemy = obj.GetComponentInChildren<Enemy>(true);
                 if (enemy)
                 {
@@ -141,6 +144,19 @@ namespace MonsterTweaks
             {
                 state.MaintainTimer = 0.5f;
                 enemy.Freeze(1.5f);
+            }
+        }
+
+        /// <summary>待機中の体を退場させる。分身は再出現させず、本体は自然な再出現に任せる。</summary>
+        private static void Retire(EnemyBombThrower body, BodyState state)
+        {
+            state.Parked = false;
+            state.SwapAt = -1f;
+            body.enemy.Freeze(0f);
+            body.enemy.EnemyParent.Despawn();
+            if (body != state.Group.Original)
+            {
+                body.enemy.EnemyParent.DespawnedTimer = 9999f;
             }
         }
 
@@ -338,8 +354,17 @@ namespace MonsterTweaks
             private static bool Prefix(EnemyBombThrower __instance)
             {
                 var state = StateOf(__instance);
-                if (state == null || !Active)
+                if (state == null)
                 {
+                    return true;
+                }
+                if (!Active)
+                {
+                    // 途中で設定を OFF にしたら、待機中の体をしまう(凍結が切れて普通の敵として動き出さないように)
+                    if (Util.IsAuthority && state.Parked && __instance.enemy.EnemyParent && __instance.enemy.EnemyParent.Spawned)
+                    {
+                        Retire(__instance, state);
+                    }
                     return true;
                 }
                 if (state.Parked)
@@ -352,8 +377,10 @@ namespace MonsterTweaks
                 }
                 if (state.SwapAt > 0f && Time.time >= state.SwapAt && state.Group.Visible == __instance)
                 {
-                    // 自分の頭が戻ってきたら入れ替えは不要
-                    if (__instance.head.currentState == EnemyBombThrowerHead.State.Disabled || __instance.headGrown)
+                    var health = __instance.enemy.Health;
+                    // 自分の頭が戻ってきた、または倒れかけているなら入れ替えない
+                    if (__instance.head.currentState == EnemyBombThrowerHead.State.Disabled || __instance.headGrown
+                        || (health && (health.dead || health.healthCurrent <= 0)))
                     {
                         state.SwapAt = -1f;
                     }

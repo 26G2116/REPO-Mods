@@ -83,6 +83,7 @@ namespace MonsterTweaks
                 spawned = true;
                 if (SemiFunc.IsMultiplayer())
                 {
+                    SpawnedEggs.Add(obj.GetComponent<Photon.Pun.PhotonView>().ViewID);
                     // ValuableEgg の photonView は Start で入るので、生成直後は PhotonView を直接使う
                     obj.GetComponent<Photon.Pun.PhotonView>().RPC("SetStateRPC", Photon.Pun.RpcTarget.All, ValuableEgg.EggState.Explode);
                 }
@@ -92,6 +93,30 @@ namespace MonsterTweaks
                 }
             }
             return spawned;
+        }
+
+        /// <summary>この MOD が生成した卵(PhotonView の ID)。</summary>
+        private static readonly HashSet<int> SpawnedEggs = new HashSet<int>();
+
+        /// <summary>
+        /// 卵は爆発すると各自の PC で Object.Destroy されるだけなので、部屋の生成記録が残り、
+        /// 途中参加者の画面に割れていない卵が出てしまう。ホストで PhotonNetwork.Destroy して記録ごと消す。
+        /// </summary>
+        [HarmonyPatch(typeof(ValuableEgg), nameof(ValuableEgg.Explode))]
+        private static class EggExplodePatch
+        {
+            private static void Postfix(ValuableEgg __instance)
+            {
+                if (!SemiFunc.IsMultiplayer() || !Photon.Pun.PhotonNetwork.IsMasterClient)
+                {
+                    return;
+                }
+                var view = __instance.GetComponent<Photon.Pun.PhotonView>();
+                if (view && SpawnedEggs.Remove(view.ViewID))
+                {
+                    Photon.Pun.PhotonNetwork.Destroy(__instance.gameObject);
+                }
+            }
         }
 
         private static bool IsChaseState(EnemyDuck.State state)
