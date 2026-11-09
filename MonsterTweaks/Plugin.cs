@@ -36,8 +36,11 @@ namespace MonsterTweaks
             Robe.Bind(Config);
             BirthdayBoy.Bind(Config);
             Loom.Bind(Config);
+            CleanupCrew.Bind(Config);
 
+            Net.Init();
             Boom.Init();
+            CleanupCrew.Init();
             _harmony = new Harmony(PluginGuid);
             PatchEach();
             Log.LogInfo($"{PluginName} {PluginVersion} を読み込みました");

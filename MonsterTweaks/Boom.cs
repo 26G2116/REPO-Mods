@@ -1,7 +1,4 @@
 using System.Linq;
-using ExitGames.Client.Photon;
-using Photon.Pun;
-using Photon.Realtime;
 using UnityEngine;
 
 namespace MonsterTweaks
@@ -10,20 +7,22 @@ namespace MonsterTweaks
     /// MOD から起こす爆発。ホストが呼ぶ。
     /// - ダメージ: 範囲内のプレイヤーに直接与える(ホスト自身は Hurt、他の人は HurtOther RPC で本人の PC に届ける)。
     ///   ゲームの爆発はダメージを各自の PC で判定するため、MOD を入れていない参加者にも効くようにこうしている
-    /// - 見た目: ホストの画面に出し、MOD を入れている参加者には Photon イベントで送って同じ見た目を出す
+    /// - 見た目: ホストの画面に出し、MOD を入れている参加者には Net で送って同じ見た目を出す
     ///   (MOD なしの参加者には見た目と音が出ない。ダメージは受ける)
     /// </summary>
     internal static class Boom
     {
-        /// <summary>LoadProgress(173)と重ならない Photon イベント番号。</summary>
-        private const byte EventCode = 174;
-        private const byte KindExplosion = 1;
-
         private static ParticleScriptExplosion _effect;
 
         internal static void Init()
         {
-            PhotonNetwork.NetworkingClient.EventReceived += OnEvent;
+            Net.Register(Net.KindExplosion, data =>
+            {
+                if (data.Length >= 2 && data[0] is Vector3 position && data[1] is float size)
+                {
+                    SpawnVisual(position, size);
+                }
+            });
         }
 
         /// <summary>
@@ -37,13 +36,7 @@ namespace MonsterTweaks
                 return;
             }
             SpawnVisual(position, visualSize);
-            if (SemiFunc.IsMultiplayer())
-            {
-                PhotonNetwork.RaiseEvent(EventCode,
-                    new object[] { KindExplosion, position, visualSize },
-                    new RaiseEventOptions { Receivers = ReceiverGroup.Others },
-                    SendOptions.SendReliable);
-            }
+            Net.SendToOthers(Net.KindExplosion, position, visualSize);
             if (damage <= 0)
             {
                 return;
@@ -73,24 +66,6 @@ namespace MonsterTweaks
                     // 位置に Vector3.zero を渡すと、受け取った側で距離の確認をせずにダメージを受ける
                     player.playerHealth.HurtOther(damage, Vector3.zero, false, enemyIndex);
                 }
-            }
-        }
-
-        private static void OnEvent(EventData photonEvent)
-        {
-            if (photonEvent.Code != EventCode || !(photonEvent.CustomData is object[] data) || data.Length < 3)
-            {
-                return;
-            }
-            // ホスト以外からの爆発は受け付けない
-            var sender = PhotonNetwork.CurrentRoom?.GetPlayer(photonEvent.Sender);
-            if (sender == null || !sender.IsMasterClient)
-            {
-                return;
-            }
-            if (data[0] is byte kind && kind == KindExplosion && data[1] is Vector3 position && data[2] is float size)
-            {
-                SpawnVisual(position, size);
             }
         }
 
