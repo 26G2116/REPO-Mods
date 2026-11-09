@@ -14,6 +14,7 @@ namespace MonsterTweaks
         private const string Section = "7. ルーム";
 
         internal static ConfigEntry<bool> Enabled;
+        internal static ConfigEntry<bool> StunImmune;
         internal static ConfigEntry<float> Radius;
         internal static ConfigEntry<float> Duration;
         internal static ConfigEntry<float> SpinSpeed;
@@ -21,9 +22,10 @@ namespace MonsterTweaks
 
         internal static void Bind(ConfigFile cfg)
         {
-            Enabled = cfg.Bind(Section, "有効", true, "ルームの変更を使う(叩きつけの衝撃でロール効果)");
+            Enabled = cfg.Bind(Section, "有効", true, "ルームの変更を使う");
+            StunImmune = cfg.Bind(Section, "スタン無効", true, "銃や爆発、投げつけなどでスタンしない");
             Radius = Util.Float(cfg, Section, "ロール効果の範囲", 6f, 1f, 20f, "叩きつけた位置からこの距離(m)以内のプレイヤーが転がる");
-            Duration = Util.Float(cfg, Section, "ロール効果の時間", 3f, 0.5f, 15f, "転がされて起き上がれない秒数");
+            Duration = Util.Float(cfg, Section, "ロール効果の時間", 5f, 0.5f, 15f, "転がされて起き上がれない秒数");
             SpinSpeed = Util.Float(cfg, Section, "回転の速さ", 15f, 1f, 40f, "転がる回転の速さ(ラジアン/秒)");
             Push = Util.Float(cfg, Section, "外へ押す力", 6f, 0f, 30f, "叩きつけた位置から外へ転がしていく力。0 ならその場で回るだけ");
         }
@@ -34,6 +36,18 @@ namespace MonsterTweaks
         }
 
         private static readonly ConditionalWeakTable<EnemyShadow, Memo> LastSlap = new ConditionalWeakTable<EnemyShadow, Memo>();
+
+        [HarmonyPatch(typeof(EnemyShadow), nameof(EnemyShadow.Update))]
+        private static class UpdatePatch
+        {
+            private static void Prefix(EnemyShadow __instance)
+            {
+                if (Enabled.Value && StunImmune.Value && Util.IsAuthority)
+                {
+                    StunImmunity.EndCurrentStun(__instance.enemy);
+                }
+            }
+        }
 
         [HarmonyPatch(typeof(EnemyShadow), nameof(EnemyShadow.EnableHurtCollider))]
         private static class SlapPatch

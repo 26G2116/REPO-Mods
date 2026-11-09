@@ -12,9 +12,7 @@ namespace MonsterTweaks
     /// - 前隙: 攻撃開始から振り下ろし(AttackStart のアニメイベント)までのアニメ速度。
     ///   攻撃の発生はホストのアニメイベントで決まり RPC で全員に伝わるので、ホストだけの導入でも効く
     /// - 後隙: 攻撃状態の長さ(本来 5 秒。終わると次の行動に移る)
-    /// - 攻撃範囲: 攻撃を始める距離(本来 8m)と、吸い込み・当たり判定の大きさの倍率
-    ///   (吸い込みはホストが計算するので全員に効く。ダメージの当たり判定は各自の PC で計算するため、
-    ///   参加者にも MOD を入れて同じ設定にしたときだけ広がる)
+    /// - 攻撃を始める距離(本来 8m)
     /// </summary>
     internal static class Trudge
     {
@@ -27,7 +25,6 @@ namespace MonsterTweaks
         internal static ConfigEntry<float> RecoverySpeed;
         internal static ConfigEntry<float> AttackDuration;
         internal static ConfigEntry<float> AttackTriggerDistance;
-        internal static ConfigEntry<float> AttackAreaScale;
 
         internal static void Bind(ConfigFile cfg)
         {
@@ -44,8 +41,6 @@ namespace MonsterTweaks
                 "攻撃を始めてから次の行動に移るまでの秒数(前隙を含む。ゲーム本来は 5)。短いほど後隙が減る");
             AttackTriggerDistance = Util.Float(cfg, Section, "攻撃を始める距離", 8f, 1f, 30f,
                 "プレイヤーにこの距離(m)まで近づいたら攻撃を始める(ゲーム本来は 8)");
-            AttackAreaScale = Util.Float(cfg, Section, "攻撃範囲の倍率", 1f, 0.25f, 5f,
-                "吸い込みと当たり判定の大きさの倍率。当たり判定は各自の PC で計算するので、参加者にも同じ設定で入れたときだけ広がる");
         }
 
         public static float GetChaseSpeed() => Enabled.Value ? 0.8f * ChaseSpeed.Value : 0.8f;
@@ -128,14 +123,7 @@ namespace MonsterTweaks
                 if (!attacking)
                 {
                     Swung.Remove(__instance);
-                    Scaled.Remove(__instance);
                     return;
-                }
-                // 攻撃に入った最初のフレームで範囲を合わせる(参加者の PC では、自分のアニメより先に
-                // ホストからの攻撃開始 RPC が届くことがあるので、振り下ろしのアニメイベントを待たない)
-                if (Scaled.Add(__instance))
-                {
-                    ApplyScale(__instance.slowWalkerAttack);
                 }
                 // 本来の処理で止められている(凍結中)ときは触らない
                 if (!Enabled.Value || __instance.animator.speed == 0f)
@@ -146,46 +134,13 @@ namespace MonsterTweaks
             }
         }
 
-        // ---- 攻撃範囲(吸い込み・当たり判定の大きさ) ----
-
-        private class ScaleMemo
-        {
-            internal Vector3 Vacuum, VacuumHurt, ImpactHurt, FirstHit;
-        }
-
-        private static readonly ConditionalWeakTable<SlowWalkerAttack, ScaleMemo> OriginalScale = new ConditionalWeakTable<SlowWalkerAttack, ScaleMemo>();
-
         [HarmonyPatch(typeof(EnemySlowWalkerAnim), nameof(EnemySlowWalkerAnim.AttackStart))]
         private static class AttackStartPatch
         {
             private static void Prefix(EnemySlowWalkerAnim __instance)
             {
                 Swung.Add(__instance);
-                ApplyScale(__instance.slowWalkerAttack);
             }
-        }
-
-        /// <summary>今の攻撃で範囲を合わせ済みのアニメ。</summary>
-        private static readonly HashSet<EnemySlowWalkerAnim> Scaled = new HashSet<EnemySlowWalkerAnim>();
-
-        private static void ApplyScale(SlowWalkerAttack attack)
-        {
-            if (!attack)
-            {
-                return;
-            }
-            var memo = OriginalScale.GetValue(attack, a => new ScaleMemo
-            {
-                Vacuum = a.vacuumSphere ? a.vacuumSphere.localScale : Vector3.one,
-                VacuumHurt = a.attackVacuumHurtCollider ? a.attackVacuumHurtCollider.transform.localScale : Vector3.one,
-                ImpactHurt = a.attackImpactHurtColliders ? a.attackImpactHurtColliders.transform.localScale : Vector3.one,
-                FirstHit = a.hurtColliderFirstHit ? a.hurtColliderFirstHit.transform.localScale : Vector3.one,
-            });
-            float scale = Enabled.Value ? AttackAreaScale.Value : 1f;
-            if (attack.vacuumSphere) attack.vacuumSphere.localScale = memo.Vacuum * scale;
-            if (attack.attackVacuumHurtCollider) attack.attackVacuumHurtCollider.transform.localScale = memo.VacuumHurt * scale;
-            if (attack.attackImpactHurtColliders) attack.attackImpactHurtColliders.transform.localScale = memo.ImpactHurt * scale;
-            if (attack.hurtColliderFirstHit) attack.hurtColliderFirstHit.transform.localScale = memo.FirstHit * scale;
         }
     }
 }

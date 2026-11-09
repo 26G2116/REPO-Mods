@@ -46,6 +46,8 @@ namespace MonsterTweaks
                 case EnemyElsa.State.LookUnderStartBig:
                 case EnemyElsa.State.LookUnderBig:
                 case EnemyElsa.State.LookUnderStopBig:
+                // 変身の途中も、本来はターゲットがいないと小さい姿に戻される(Update の判定)ので対象にする
+                case EnemyElsa.State.TransformSmallToBig:
                     return true;
                 default:
                     return false;
