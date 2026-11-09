@@ -34,6 +34,7 @@ namespace MonsterTweaks
             Trudge.Bind(Config);
             ShadowChild.Bind(Config);
             Robe.Bind(Config);
+            BirthdayBoy.Bind(Config);
 
             Boom.Init();
             _harmony = new Harmony(PluginGuid);
