@@ -1,0 +1,321 @@
+// XUnity.AutoTranslator 用の翻訳表(英語=日本語)
+// 「Repo MODs」プロファイルに入っている MOD のうち、画面に出る英語を訳したもの。
+// - 1 行に 1 件。左が画面に出る英語(完全一致)、右が日本語
+// - r:"正規表現"=置き換え  は、数字や名前が入る文に使う($1 などで中身を残す。$ そのものは $$)
+// - 設定画面(REPOConfig)の項目名は、大文字の区切りにスペースを入れた形で出るので、その形で書く
+// 対象外: SharePermissions(MOD 自身が日本語に対応)、ゲーム本体(公式の日本語を使う)
+
+//==================== REPOConfig(MOD 設定画面) ====================
+Mods=MOD
+Mod Search=MOD を検索
+Back=戻る
+Unsaved Changes=未保存の変更
+You have unsaved changes, are you sure you want to exit?=保存していない変更があります。閉じてもよろしいですか?
+<NONE>=<なし>
+Show In Game=ゲーム中に表示
+
+//==================== MenuLib(各 MOD の画面部品) ====================
+Yes=はい
+No=いいえ
+
+//==================== 設定画面でよく出る語 ====================
+General=全般
+Settings=設定
+Enabled=有効
+Enable Mod=MOD を有効にする
+Multiplayer=マルチプレイ
+Developer=開発者向け
+Logging=ログ
+Input=入力
+Colors=色
+Effects=演出
+Default=標準
+Custom=カスタム
+Off=オフ
+Debug=デバッグ
+Verbose=詳細
+
+//==================== BagExpander(インベントリ拡張) ====================
+Slots=スロット
+Slot Count=スロット数
+Leave In Base=拠点に残す
+Host Controls=ホストが設定を管理
+
+//==================== Shop Items Spawn in Level / All Shop Items In Level(ショップのアイテムがマップに出る) ====================
+Upgrade Items=アップグレードアイテム
+Spawn Upgrade Items=アップグレードアイテムを出す
+Map Hide Shop Upgrade Items=マップにアップグレードアイテムを表示しない
+Upgrade Item Spawn Chance=アップグレードアイテムの出現率
+Use Shop Price For Item Selection=ショップの価格をもとにアイテムを選ぶ
+Drone Items=ドローンアイテム
+Spawn Drone Items=ドローンアイテムを出す
+Map Hide Drone Items=マップにドローンアイテムを表示しない
+Drone Items Spawn Chance=ドローンアイテムの出現率
+Health Packs=回復パック
+Spawn Health Packs From Enemies=敵から回復パックを落とす
+Health Pack Drop Chance=回復パックのドロップ率
+Allowed Items Upgrades=出現を許可するアップグレード
+Allowed Items Drones=出現を許可するドローン
+0_Debug=0_デバッグ
+Debug Mode=デバッグモード
+Save All On Level Complete=レベルクリア時にすべて保存
+1_Upgrade Items=1_アップグレードアイテム
+2_Drone Items=2_ドローンアイテム
+3_Other Shop Items=3_その他のショップアイテム
+Spawn Other Shop Items=その他のショップアイテムを出す
+Map Hide Other Shop Items=マップにその他のショップアイテムを表示しない
+Other Shop Item Spawn Chance=その他のショップアイテムの出現率
+4_Health Packs=4_回復パック
+5_Filters=5_絞り込み
+Min Item Value=アイテム価値の最小値
+Max Item Value=アイテム価値の最大値
+Max Items Per Level=1 レベルあたりの最大数
+Min Items Per Level=1 レベルあたりの最小数
+6_Level Scaling=6_レベルによる増加
+Enable Level Scaling=レベルに応じて増やす
+Level Scaling Multiplier=レベルによる増加の倍率
+7_Announce=7_お知らせ
+Announce Rare Items=レアアイテムをお知らせする
+Announce Value Threshold=お知らせする価値のしきい値
+8_Enemy Loot=8_敵のドロップ
+Enable Enemy Loot Tables=敵ごとのドロップ表を使う
+r:"^Item pool: (\d+) upgrades \| (\d+) drones \| (\d+) other$"=アイテム候補: アップグレード $1 / ドローン $2 / その他 $3
+
+//==================== MentalistAttackModifier(メンタリストの攻撃調整) ====================
+Floater=メンタリスト
+Attack Range=攻撃範囲
+Smash Damage=叩きつけダメージ
+Visual Auto Scale=見た目を自動で拡大縮小
+Visual Scale Multiplier=見た目の大きさの倍率
+Enable Investigate Sound=調査音を有効にする
+Charge Investigate Range=溜め時の調査範囲
+Smash Investigate Range=叩きつけ時の調査範囲
+
+//==================== RoboUnion(最大人数の拡張) ====================
+Max Players=最大人数
+Log Messages Per Second=1 秒あたりの通信数をログに出す
+Show Messages Per Second=1 秒あたりの通信数を表示
+r:"^RoboUnion max players limited to (\d+) for this session\.$"=RoboUnion: このセッションの最大人数は $1 人に制限されています。
+
+//==================== MorePlayerList(プレイヤー一覧の拡張) ====================
+Lobby List Type=ロビーの一覧の表示方法
+Esc Menu List Type=ESC メニューの一覧の表示方法
+Enable logging=ログを出す
+Esc Menu Settings=ESC メニューの設定
+Esc Menu reset key=ESC メニューの位置リセットキー
+Scroll Type Settings=スクロール表示の設定
+Scroll reset key=スクロール位置のリセットキー
+Mouse scroll speed=マウスホイールのスクロール速度
+Up arrow speed=↑キーのスクロール速度
+Down arrow speed=↓キーのスクロール速度
+Y interval=縦の間隔
+Custom Type Settings=カスタム表示の設定
+offset player=ずらすプレイヤー数
+Large=大きく
+Scroll=スクロール
+Split=2 列
+Integration=1 列
+
+//==================== MorePlayerList PingAddon(ESC メニューに ping 表示) ====================
+Show Ping=ping を表示
+Font size=文字の大きさ
+X offset=横の位置
+Y offset=縦の位置
+Green threshold=緑で表示する上限
+Yellow threshold=黄色で表示する上限
+Orange threshold=オレンジで表示する上限
+
+//==================== BanEnforcer(永久 BAN、F6 で開く) ====================
+BAN LIST=BAN リスト
+<size\=20><b>BAN LIST</b></size>=<size\=20><b>BAN リスト</b></size>
+Ban enforcer opened.=BAN 管理を開きました。
+You are the host. Bans enforce immediately.=あなたはホストです。BAN はすぐに実行されます。
+You are not the host. Bans are stored and enforce when you host.=あなたはホストではありません。BAN は保存され、あなたがホストのときに実行されます。
+Reason:=理由:
+Ban Steam ID=Steam ID で BAN
+Dump Debug=デバッグ情報を出力
+Close=閉じる
+In-Room Players=部屋にいるプレイヤー
+<b>In-Room Players</b>=<b>部屋にいるプレイヤー</b>
+Ban=BAN
+Banned=BAN 済み
+<b>Banned</b>=<b>BAN 済み</b>
+Not in a room.=部屋に入っていません。
+Clear All=すべて解除
+Cleared all local bans.=保存していた BAN をすべて解除しました。
+Unknown=不明
+Unban=解除
+Steam Lobby=Steam ロビー
+<b>Steam Lobby</b>=<b>Steam ロビー</b>
+Enter a valid Steam64 ID.=正しい Steam64 ID を入力してください。
+Ready to enforce Steam bans.=Steam の BAN を実行する準備ができています。
+Manual ban=手動で BAN
+Banned from Steam lobby list=Steam ロビーの一覧から BAN
+Banned from in-room player list=部屋のプレイヤー一覧から BAN
+Toggle Key=開くキー
+Debug Dump Key=デバッグ出力キー
+Verbose Logs=詳しいログ
+Log Local Ids=自分の ID をログに出す
+r:"^(.+)  \(no steam id\)$"=$1  (Steam ID なし)
+r:"^Unknown  \((\d+)\)$"=不明  ($1)
+r:"^Unbanned (\d+)\.$"=$1 の BAN を解除しました。
+r:"^Banned Steam64 (\d+)\.$"=Steam64 $1 を BAN しました。
+r:"^Banned (.+) \((\d+)\)\.$"=$1 ($2) を BAN しました。
+r:"^Banned (.+)\.$"=$1 を BAN しました。
+
+//==================== Hunter Enhancements(ハンターの強化) ====================
+A. General=A. 全般
+Enable Minigun Mode=ミニガンモードを有効にする
+Minigun Shots=ミニガンの連射数
+Minigun Shot Delay=ミニガンの発射間隔
+B. Reload Times=B. リロード時間
+Fast Reload Time=速いリロードの時間
+Medium Reload Time=普通のリロードの時間
+Slow Reload Time=遅いリロードの時間
+C. Skill Weights=C. 腕前の出やすさ
+Fast Skill Weight=「速い」の出やすさ
+Medium Skill Weight=「普通」の出やすさ
+Slow Skill Weight=「遅い」の出やすさ
+D. Damage Behavior=D. ダメージを受けたときの動き
+Enable Damage Interrupt=ダメージでリロードを中断する
+Damage Interrupt Delay=中断後の待ち時間
+Run Away While Reloading=リロード中は逃げる
+E. Total Ammo=E. 弾数の合計
+Enable Total Ammo Limit=弾数の合計に上限を付ける
+Total Ammo Count=弾数の合計
+Z. Logging=Z. ログ
+Enable Info Logs=情報ログを出す
+Enable Debug Logs=デバッグログを出す
+Enable Warning Logs=警告ログを出す
+Enable Error Logs=エラーログを出す
+
+//==================== ArenaRaceMultiplayerSpawnFix(アリーナレースのスタート位置) ====================
+Spawn Layout=スタート位置の並び
+Horizontal Players=横に並べる人数
+Vertical Players=縦に並べる人数
+Start Boost=スタートダッシュ
+Start Boost Enabled=スタートダッシュを有効にする
+Start Boost Multiplier=スタートダッシュの倍率
+
+//==================== ClownBeamTrackingEnhancements(ピエロのビーム強化) ====================
+Clown=ピエロ
+Attack Track Speed=攻撃中の追尾速度
+Beam Range=ビームの射程
+Attack Walk Enabled=攻撃中に歩く
+Zero Attack Start Delay=攻撃開始の待ち時間をなくす
+Beam Duration Min Seconds=ビームの持続時間(最短・秒)
+Beam Duration Max Seconds=ビームの持続時間(最長・秒)
+Disable Kick Attack=キック攻撃をしない
+Knockback Multiplier=ノックバックの倍率
+Attack Random Move Enabled=攻撃中にランダムに動く
+Attack Random Jump Enabled=攻撃中にランダムにジャンプする
+Attack Random Target Switch Enabled=攻撃中にランダムに標的を変える
+Vision Angle Multiplier=視野角の倍率
+Vision Distance Multiplier=視野距離の倍率
+Hearing Multiplier=聴覚の倍率
+Attack Spin Chance Percent=回転攻撃の確率(%)
+Attack Spin Speed Deg Per Sec=回転攻撃の速さ(度/秒)
+
+//==================== RespawnNoiseControl(物音による敵の復活調整) ====================
+Respawn Noise Threshold=復活が早まる物音の大きさ
+Respawn Decrease Seconds=物音 1 回で早まる秒数
+
+//==================== ReviveHeadInTruckOrExtractionPoint(頭をトラック・納品所に運んで蘇生) ====================
+Revive=蘇生
+Insta Revive=即時蘇生
+Revive Cooldown Seconds=蘇生のクールダウン(秒)
+Revive Cost Multiplier=蘇生費用の倍率
+Heal Multiplier=回復量の倍率
+Reviving=蘇生中
+Five=5
+Four=4
+Three=3
+Two=2
+One=1
+r:"^My revive will cost \$(\d+)k$"=蘇生には $$$1k かかります
+r:"^I can't be revived yet — not enough money\. Cost: \$(\d+)k, available: \$(.+)$"=まだ蘇生できません(お金が足りません)。費用: $$$1k、所持金: $$$2
+r:"^I can't be revived yet, (\d+) seconds left$"=まだ蘇生できません。あと $1 秒
+
+//==================== SharedUpgradesPlus(アップグレードの共有) ====================
+Enable Shared Upgrades=アップグレードの共有を有効にする
+Shared Upgrades Chance=共有される確率
+Shared Upgrades Chance Mode=確率の判定方法
+Each player=プレイヤーごと
+Whole team=チーム全体
+Late Join Sync=途中参加者にも反映する
+Enable Modded Upgrades=MOD のアップグレードも共有する
+Avoid More Upgrades Double Share=MoreUpgrades との二重共有を防ぐ
+Scale Price With Sharing=共有する人数に応じて値段を上げる
+Price Per Extra Copy=1 人増えるごとの追加料金
+Enable Shared Upgrade Heal=共有された体力アップで回復する
+Enable Share Notification=共有されたときに演出を出す
+Log Level=ログの詳しさ
+Vanilla Upgrades=ゲーム本体のアップグレード
+Modded Upgrades=MOD のアップグレード
+Health=体力
+Health Share Limit=体力の共有上限
+Stamina=スタミナ
+Stamina Share Limit=スタミナの共有上限
+Extra Jump=追加ジャンプ
+Extra Jump Share Limit=追加ジャンプの共有上限
+Launch=タンブル発射
+Launch Share Limit=タンブル発射の共有上限
+Tumble Climb=タンブル登り
+Tumble Climb Share Limit=タンブル登りの共有上限
+Tumble Wings=タンブルの翼
+Tumble Wings Share Limit=タンブルの翼の共有上限
+Speed=スプリント速度
+Speed Share Limit=スプリント速度の共有上限
+Crouch Rest=しゃがみ回復
+Crouch Rest Share Limit=しゃがみ回復の共有上限
+Strength=つかむ力
+Strength Share Limit=つかむ力の共有上限
+Range=つかむ距離
+Range Share Limit=つかむ距離の共有上限
+Throw=投げる力
+Throw Share Limit=投げる力の共有上限
+Death Head Battery=死亡時の頭のバッテリー
+Death Head Battery Share Limit=死亡時の頭のバッテリーの共有上限
+Map Player Count=マップの人数表示
+Map Player Count Share Limit=マップの人数表示の共有上限
+
+//==================== LateJoinNow(途中参加) ====================
+Mod Info=MOD 情報
+Mod Name=MOD 名
+Mod Version=MOD のバージョン
+Language=言語
+A.Global=A. 全体設定
+Mod Enabled=MOD を有効にする
+Public Room Name Prefix=公開部屋の名前に印を付ける
+Teleport To Host On Join=参加したらホストの所へ移動
+Coop Mode=協調モード(両方に導入時の最適化)
+B.Scene Whitelist=B. 参加を許可する場面
+Allow Joining In Truck=トラックでの参加を許可
+Allow Joining In Shop=ショップでの参加を許可
+Allow Joining In Level=レベル中の参加を許可
+C.Room Info HUD=C. 部屋情報の表示
+Show Join Status=参加状況を表示
+Show Player Count=人数を表示
+Show Room Type=部屋の種類を表示
+Show Room Name=部屋の名前を表示
+Font Size=文字の大きさ
+Opacity/%=不透明度(%)
+D.Debug=D. デバッグ
+Verbose Log=詳しいログ
+Conflict Mod Warning=競合する MOD の警告
+Room: Private - Open=部屋: 非公開 - 参加可
+Room: Private - Closed=部屋: 非公開 - 参加不可
+Room: Public - Open=部屋: 公開 - 参加可
+Room: Public - Closed=部屋: 公開 - 参加不可
+Room: Matchmaking - Open=部屋: マッチング - 参加可
+Room: Matchmaking - Closed=部屋: マッチング - 参加不可
+Room: Unknown - Open=部屋: 不明 - 参加可
+Room: Unknown - Closed=部屋: 不明 - 参加不可
+Room: Singleplayer=部屋: シングルプレイ
+r:"^Players: (.+)$"=人数: $1
+r:"^Name: (.+)$"=部屋名: $1
+r:"^(.+): Connecting$"=$1: 接続待ち
+r:"^(.+): Queued$"=$1: 順番待ち
+r:"^(.+): Loading$"=$1: 読み込み中
+r:"^(.+): Late Joined \(Optimized\)$"=$1: 途中参加しました(最適化)
+r:"^(.+): Late Joined$"=$1: 途中参加しました
