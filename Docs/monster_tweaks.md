@@ -10,7 +10,7 @@
 | 4 | シャドーチャイルド | `EnemyThinMan` | 範囲内で貴重品・アイテムをつかんでいたら「見ている」扱い | 実装済み(未テスト)。EnemyOnScreen.GetOnScreen の Postfix |
 | 5 | ローブ | `EnemyRobe` | AI 超強化、範囲内のプレイヤー位置把握、死角での待ち伏せ・奇襲 | 実装済み(未テスト)。本来の TargetPlayer/SeekPlayer を使い「いつ・どこへ」だけ決め直す |
 | 6 | バースデーボーイ | `EnemyBirthdayBoy` | スタン無効、つかまれたら即激怒 | 実装済み(未テスト)。StateStunned.OverrideDisable と GoToPlayerAngry |
-| 7 | ルーム | `EnemyShadow`(要確認) | 攻撃の爆発で周囲にロール効果(ロールドローンの回転) | 未着手 |
+| 7 | ルーム | `EnemyShadow`(確認済み: 叩きつけ = EnableHurtCollider) | 攻撃の爆発で周囲にロール効果(ロールドローンの回転) | 実装済み(未テスト)。`RollEffect.cs`(タンブル + 回転、ホスト側の物理) |
 | 8 | クリーンアップクルー | `EnemyBombThrower` | 顔爆弾の発射後すぐ次を再生・発射 | 未着手 |
 | 9 | 仕上げ | - | Codex レビュー、README、Release zip | 未着手 |
 
