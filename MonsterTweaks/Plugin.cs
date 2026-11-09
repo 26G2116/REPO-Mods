@@ -33,6 +33,7 @@ namespace MonsterTweaks
             ApexPredator.Bind(Config);
             Trudge.Bind(Config);
             ShadowChild.Bind(Config);
+            Robe.Bind(Config);
 
             Boom.Init();
             _harmony = new Harmony(PluginGuid);
