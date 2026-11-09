@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -31,6 +32,116 @@ namespace MonsterTweaks
             Items = cfg.Bind(Section, "アイテムをつかんでいると見つかる", true, "武器・ドローンなどショップのアイテムが対象");
             NeedLineOfSight = cfg.Bind(Section, "壁越しでは見つからない", false,
                 "ON にすると、敵とつかんでいる物の間に壁があるときは見つからない");
+            MultiAttack = cfg.Bind(Section, "チャージ完了時に物を持つ全員を攻撃", true,
+                "攻撃のチャージがたまった瞬間、範囲内で貴重品・アイテムを持っている全員を、本来の相手と一緒に攻撃する(引き寄せ・ダメージ)");
+            MultiAttackDamage = Util.Int(cfg, Section, "一緒に攻撃される人へのダメージ", 50, 0, 200, "本来の相手へのダメージは 50");
+        }
+
+        internal static ConfigEntry<bool> MultiAttack;
+        internal static ConfigEntry<int> MultiAttackDamage;
+
+        // ---------------- チャージ完了時に、物を持つ全員を攻撃 ----------------
+
+        private class AttackMemo
+        {
+            internal readonly List<PlayerAvatar> Extras = new List<PlayerAvatar>();
+        }
+
+        private static readonly ConditionalWeakTable<EnemyThinMan, AttackMemo> Attacks = new ConditionalWeakTable<EnemyThinMan, AttackMemo>();
+
+        /// <summary>チャージがたまった瞬間(Notice)に、一緒に攻撃する人を決める。</summary>
+        [HarmonyPatch(typeof(EnemyThinMan), nameof(EnemyThinMan.StateNotice))]
+        private static class NoticePatch
+        {
+            private static void Prefix(EnemyThinMan __instance)
+            {
+                var memo = Attacks.GetOrCreateValue(__instance);
+                memo.Extras.Clear();
+                if (!Enabled.Value || !MultiAttack.Value || !Util.IsAuthority || !__instance.enemy || !__instance.enemy.OnScreen)
+                {
+                    return;
+                }
+                foreach (var player in GrabbingPlayers(__instance.enemy.OnScreen, __instance))
+                {
+                    if (player && !player.isDisabled && player != __instance.playerTarget)
+                    {
+                        memo.Extras.Add(player);
+                    }
+                }
+                if (memo.Extras.Count > 0)
+                {
+                    Plugin.Verbose($"シャドーチャイルド: 本来の相手と一緒に {memo.Extras.Count} 人を攻撃します");
+                }
+            }
+        }
+
+        /// <summary>本来の相手と同じく、ダメージ・転がり・つかみ解除を一緒に攻撃する人にも与える。</summary>
+        [HarmonyPatch(typeof(EnemyThinMan), nameof(EnemyThinMan.StateDamage))]
+        private static class DamagePatch
+        {
+            private static void Prefix(EnemyThinMan __instance)
+            {
+                if (!Util.IsAuthority || !__instance.playerTarget || !Attacks.TryGetValue(__instance, out var memo) || memo.Extras.Count == 0)
+                {
+                    return;
+                }
+                bool first = __instance.stateImpulse;
+                int enemyIndex = SemiFunc.EnemyGetIndex(__instance.enemy);
+                foreach (var player in memo.Extras)
+                {
+                    if (!player || player.isDisabled || !player.tumble)
+                    {
+                        continue;
+                    }
+                    if (first && MultiAttackDamage.Value > 0)
+                    {
+                        player.playerHealth.HurtOther(MultiAttackDamage.Value, player.transform.position, false, enemyIndex);
+                    }
+                    player.tumble.TumbleRequest(true, false);
+                    player.tumble.TumbleOverrideTime(1f);
+                    player.tumble.OverrideEnemyHurt(1f);
+                    var tumbleObject = player.tumble.physGrabObject;
+                    foreach (var grabber in tumbleObject.playerGrabbing.ToArray())
+                    {
+                        grabber.OverrideGrabRelease(tumbleObject.photonView.ViewID, 1f);
+                    }
+                }
+            }
+
+            private static void Postfix(EnemyThinMan __instance)
+            {
+                // 攻撃が終わったら(Despawn へ移ったら)忘れる
+                if (__instance.currentState != EnemyThinMan.State.Damage && Attacks.TryGetValue(__instance, out var memo))
+                {
+                    memo.Extras.Clear();
+                }
+            }
+        }
+
+        /// <summary>本来の相手と同じ力で、一緒に攻撃する人もシャドーチャイルドのほうへ引き寄せる。</summary>
+        [HarmonyPatch(typeof(EnemyThinMan), nameof(EnemyThinMan.StateDamageFixed))]
+        private static class DamageFixedPatch
+        {
+            private static void Postfix(EnemyThinMan __instance)
+            {
+                if (!Util.IsAuthority || __instance.currentState != EnemyThinMan.State.Damage || !Attacks.TryGetValue(__instance, out var memo))
+                {
+                    return;
+                }
+                Vector3 target = __instance.enemy.Vision.VisionTransform.position;
+                foreach (var player in memo.Extras)
+                {
+                    if (!player || player.isDisabled || !player.tumble || !player.tumble.physGrabObject)
+                    {
+                        continue;
+                    }
+                    var rb = player.tumble.physGrabObject.rb;
+                    Vector3 direction = (target - player.tumble.physGrabObject.centerPoint).normalized;
+                    rb.AddForce(direction * 5000f * Time.fixedDeltaTime, ForceMode.Force);
+                    Vector3 torque = SemiFunc.PhysFollowDirection(rb.transform, direction, rb, 10f) * 2f;
+                    rb.AddTorque(torque / rb.mass, ForceMode.Force);
+                }
+            }
         }
 
         private class ThinManRef
