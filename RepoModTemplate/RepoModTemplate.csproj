@@ -18,7 +18,6 @@
     <ProfileDir Condition="'$(ProfileDir)' == ''">$(APPDATA)\com.kesomannen.gale\repo\profiles\Repo MODs</ProfileDir>
     <ManagedDir>$(GameDir)\REPO_Data\Managed</ManagedDir>
     <BepInExCoreDir>$(ProfileDir)\BepInEx\core</BepInExCoreDir>
-    <PluginInstallDir>$(ProfileDir)\BepInEx\plugins\$(AssemblyName)</PluginInstallDir>
   </PropertyGroup>
 
   <!-- 参照 DLL はゲームとプロファイルから直接読む(出力にはコピーしない) -->
@@ -40,19 +39,27 @@
     <TsDistDir>$(MSBuildProjectDirectory)\..\dist</TsDistDir>
   </PropertyGroup>
 
-  <!-- Debug ビルド: Gale プロファイルの plugins フォルダへ直接コピー(開発用) -->
+  <!-- Debug ビルド: Gale がインポート済みの MOD フォルダへ DLL を上書きする(開発用)
+       - Gale で ON / OFF できるように、自前のフォルダは作らない(先に dist の zip を Gale でインポートする)
+       - Gale で OFF(ファイル名が .old)のときはコピーしない(勝手に ON に戻さない) -->
   <Target Name="CopyToGaleProfile" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug' And Exists('$(ProfileDir)')">
-    <MakeDir Directories="$(PluginInstallDir)" />
-    <Copy SourceFiles="$(TargetPath);$(TargetDir)$(TargetName).pdb" DestinationFolder="$(PluginInstallDir)" SkipUnchangedFiles="true" ContinueOnError="true" />
-    <Message Importance="high" Text="-> $(PluginInstallDir) にコピーしました" />
+    <ItemGroup>
+      <GaleEnabledDll Include="$(ProfileDir)\BepInEx\plugins\**\$(TargetFileName)" />
+      <GaleDisabledDll Include="$(ProfileDir)\BepInEx\plugins\**\$(TargetFileName).old" />
+    </ItemGroup>
+    <Copy Condition="'@(GaleEnabledDll->Count())' == '1'" SourceFiles="$(TargetPath)" DestinationFolder="%(GaleEnabledDll.RootDir)%(GaleEnabledDll.Directory)" ContinueOnError="true" />
+    <Message Condition="'@(GaleEnabledDll->Count())' == '1'" Importance="high" Text="-> @(GaleEnabledDll) を上書きしました" />
+    <Message Condition="'@(GaleEnabledDll->Count())' == '0' And '@(GaleDisabledDll->Count())' != '0'" Importance="high" Text="-> Gale で OFF になっているのでコピーしませんでした" />
+    <Warning Condition="'@(GaleEnabledDll->Count())' == '0' And '@(GaleDisabledDll->Count())' == '0'" Text="Gale に $(AssemblyName) がありません。Release ビルドで作った dist の zip を Gale の「ローカル MOD のインポート」で取り込んでください" />
+    <Warning Condition="'@(GaleEnabledDll->Count())' &gt; '1'" Text="plugins に $(TargetFileName) が複数あります(@(GaleEnabledDll))。古いほうのフォルダを消してください" />
   </Target>
 
   <!-- Release ビルド: Gale の「ローカル MOD インポート」用 zip を dist に作る -->
   <Target Name="PackageForGale" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <RemoveDir Directories="$(TsStageDir)" />
     <MakeDir Directories="$(TsStageDir);$(TsDistDir)" />
-    <WriteLinesToFile File="$(TsStageDir)\manifest.json" Overwrite="true" Encoding="UTF-8"
-                      Lines="{;  &quot;name&quot;: &quot;$(TsName)&quot;,;  &quot;version_number&quot;: &quot;$(Version)&quot;,;  &quot;website_url&quot;: &quot;&quot;,;  &quot;description&quot;: &quot;$(TsDescription)&quot;,;  &quot;dependencies&quot;: [$(TsDependencies)];}" />
+    <WriteLinesToFile File="$(TsStageDir)\manifest.json" Overwrite="true"
+                      Lines="{;  &quot;name&quot;: &quot;$(TsName)&quot;,;  &quot;author&quot;: &quot;$(TsAuthor)&quot;,;  &quot;version_number&quot;: &quot;$(Version)&quot;,;  &quot;website_url&quot;: &quot;&quot;,;  &quot;description&quot;: &quot;$(TsDescription)&quot;,;  &quot;dependencies&quot;: [$(TsDependencies)];}" />
     <Copy SourceFiles="$(TargetPath);Package\icon.png;Package\README.md" DestinationFolder="$(TsStageDir)" />
     <Delete Files="$(TsDistDir)\$(TsAuthor)-$(TsName)-$(Version).zip" />
     <ZipDirectory SourceDirectory="$(TsStageDir)" DestinationFile="$(TsDistDir)\$(TsAuthor)-$(TsName)-$(Version).zip" />

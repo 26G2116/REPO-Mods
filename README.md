@@ -9,9 +9,13 @@ R.E.P.O. 用 BepInEx 5 プラグインのテンプレート。
 - `RepoModTemplate/Patches/PlayerControllerPatch.cs` … Harmony パッチのサンプル
 
 ## ビルドと確認
-1. `RepoMod.sln` を Visual Studio で開いてビルドする(または `dotnet build`)
-2. ビルドすると DLL が Gale の「Repo MODs」プロファイルの
-   `BepInEx\plugins\RepoModTemplate\` に自動でコピーされる
+1. 初回だけ: **Release** でビルドする → `dist\shunm-<MOD名>-<版>.zip` ができる。
+   Gale で「Repo MODs」プロファイルを選び、「ローカル MOD のインポート」でこの zip を取り込む
+   (これで Gale の MOD 一覧に表示され、スイッチで ON / OFF できる)
+2. 開発中は **Debug** でビルドする(Visual Studio または `dotnet build`)。
+   Gale が取り込んだ MOD フォルダの DLL が自動で上書きされる
+   - Gale で OFF にしているときはコピーしない(勝手に ON に戻らない)
+   - 取り込んでいないときは、警告が出るだけでコピーしない
 3. Gale で「Repo MODs」プロファイルを選んで起動する
 4. ログで確認する:
    `%APPDATA%\com.kesomannen.gale\repo\profiles\Repo MODs\BepInEx\LogOutput.log`
@@ -27,3 +31,5 @@ R.E.P.O. 用 BepInEx 5 プラグインのテンプレート。
 フォルダをコピーして、名前を変える:
 - `.csproj` のファイル名と `AssemblyName` / `RootNamespace`
 - `Plugin.cs` の `PluginGuid` / `PluginName` / namespace
+
+版を上げたら(`.csproj` の `Version`)、Release でビルドして Gale にもう一度インポートする。
