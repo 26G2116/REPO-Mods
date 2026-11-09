@@ -31,6 +31,7 @@ namespace MonsterTweaks
 
             Elsa.Bind(Config);
             ApexPredator.Bind(Config);
+            Trudge.Bind(Config);
 
             Boom.Init();
             _harmony = new Harmony(PluginGuid);
