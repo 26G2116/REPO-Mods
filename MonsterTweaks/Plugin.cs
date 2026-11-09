@@ -30,7 +30,9 @@ namespace MonsterTweaks
             VerboseLog = Config.Bind("0. 全体", "詳しいログ", false, "挙動を変えたときにログを出す(動作確認用)");
 
             Elsa.Bind(Config);
+            ApexPredator.Bind(Config);
 
+            Boom.Init();
             _harmony = new Harmony(PluginGuid);
             PatchEach();
             Log.LogInfo($"{PluginName} {PluginVersion} を読み込みました");
