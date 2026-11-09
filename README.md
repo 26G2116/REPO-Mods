@@ -4,6 +4,7 @@ R.E.P.O. 用 BepInEx 5 プラグインのテンプレート。
 
 ## 構成
 - `RepoMod.sln` … Visual Studio で開くソリューション
+- `LoadProgress/` … マルチのロード進捗を 10 段階で表示する MOD(詳細: `Docs/loading_flow.md`)
 - `RepoModTemplate/Plugin.cs` … プラグイン本体(起動ログ、設定、Harmony 適用)
 - `RepoModTemplate/Patches/PlayerControllerPatch.cs` … Harmony パッチのサンプル
 

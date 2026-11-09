@@ -35,3 +35,16 @@
   → これを出したいなら、クライアントにも MOD を入れて独自 RPC / Photon イベントで送る必要がある。
 - 既存機能: `NetworkManager.StuckInLoading()` でロードが止まったら Back キーで抜けられる。
 - ロード画面は `LoadingUI`。表示を重ねるならここ、または独自の Canvas / OnGUI。
+
+## LoadProgress MOD の実装方針(v0.1.0)
+- 5 を 5a(貴重品受信 = NavMesh 構築の合図を受けた)と 5b(`LocalSetupReady`)に分けて 10 段階
+- Harmony パッチは使わず、毎 0.1 秒ゲームの状態を読む(更新で壊れにくい)。private は publicizer で参照
+- 開始: `Reload` シーン読み込み(保険として新しい LevelGenerator 検出)。
+  終了: 自分が `GameDirector.gameState.Main` 到達 + 全員完了(確認できない人がいても 10 秒で閉じる)
+- 共有: Photon イベント 173 `{ver, int[] actor, int[] mask}`。参加者は自分の分、ホストは全員分を送る。
+  受信側は「本人の申告」か「ホストからの情報」だけ OR で取り込む。表示していない間は捨てる
+- 段階は順番に進むので、上位の段階が分かれば下位も完了とみなす(MOD なしの人の 5a/5b などを埋める)
+- 演出がないレベル(ロビー等)は個人の演出終了フラグが立たないので、Main 到達で全員の 9 を完了扱い
+
+## 今後追加したい MOD(ユーザーの予定)
+- 権限 MOD(内容は未確認)
