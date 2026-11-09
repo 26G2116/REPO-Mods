@@ -19,6 +19,9 @@ namespace MonsterTweaks
         internal static ConfigEntry<float> ChaseTime;
         internal static ConfigEntry<bool> SelfDestruct;
         internal static ConfigEntry<bool> SelfDestructOnTargetLost;
+        internal static ConfigEntry<bool> UseEgg;
+        internal static ConfigEntry<int> EggCount;
+        internal static ConfigEntry<float> EggSpread;
         internal static ConfigEntry<int> Damage;
         internal static ConfigEntry<float> Radius;
         internal static ConfigEntry<bool> ThroughWalls;
@@ -36,11 +39,16 @@ namespace MonsterTweaks
                 "怒りが終わって小さい姿に戻るときに自爆する");
             SelfDestructOnTargetLost = cfg.Bind(Section, "相手が倒れて終わったときも自爆", true,
                 "追いかけていた相手が倒れたせいで怒りが終わったときも自爆する");
-            Damage = Util.Int(cfg, Section, "自爆のダメージ", 50, 0, 200, "範囲内のプレイヤーが受けるダメージ(体力は通常 100)");
-            Radius = Util.Float(cfg, Section, "自爆の範囲", 8f, 1f, 30f, "ダメージが届く距離(m)");
-            ThroughWalls = cfg.Bind(Section, "壁越しにも当たる", false, "壁の向こうのプレイヤーにもダメージを与える");
-            VisualSize = Util.Float(cfg, Section, "爆発の見た目の大きさ", 1.5f, 0.5f, 4f,
-                "爆発エフェクトの大きさ(敵「バン」の大爆発が 1)");
+            UseEgg = cfg.Bind(Section, "人類美術館の卵の爆発を使う", true,
+                "自爆に、人類美術館の緑の卵(約 $4000)の爆発をそのまま使う。MOD なしの参加者にも爆発が見え、ダメージもゲーム本来どおり(1 個でほぼ即死級)。" +
+                "OFF なら下の「MOD の爆発」の設定を使う");
+            EggCount = Util.Int(cfg, Section, "卵の数", 3, 1, 8, "自爆の位置に並べて爆発させる卵の数(多いほど広範囲)");
+            EggSpread = Util.Float(cfg, Section, "卵を並べる半径", 2.5f, 0f, 10f, "卵を 2 個以上にしたとき、ひよこの周りに円形に並べる半径(m)");
+            Damage = Util.Int(cfg, Section, "MOD の爆発のダメージ", 50, 0, 200, "卵を使わないとき、範囲内のプレイヤーが受けるダメージ(体力は通常 100)");
+            Radius = Util.Float(cfg, Section, "MOD の爆発の範囲", 8f, 1f, 30f, "卵を使わないとき、ダメージが届く距離(m)");
+            ThroughWalls = cfg.Bind(Section, "MOD の爆発は壁越しにも当たる", false, "卵を使わないとき、壁の向こうのプレイヤーにもダメージを与える");
+            VisualSize = Util.Float(cfg, Section, "MOD の爆発の見た目の大きさ", 1.5f, 0.5f, 4f,
+                "卵を使わないときの爆発エフェクトの大きさ(敵「バン」の大爆発が 1。MOD なしの参加者には見えない)");
             DespawnAfter = cfg.Bind(Section, "自爆したら消える", true,
                 "自爆したあと姿を消す(しばらくすると通常どおり再出現する)。OFF なら小さい姿に戻って残る");
         }
@@ -48,6 +56,43 @@ namespace MonsterTweaks
         // ---- 本来の定数の代わりに呼ばれる値(無効のときはゲーム本来の値を返す) ----
         public static float GetChaseTime() => Enabled.Value ? ChaseTime.Value : 10f;
         public static float GetTowardsSpeed() => Enabled.Value ? 5f * SpeedMultiplier.Value : 5f;
+
+        /// <summary>
+        /// 人類美術館の卵を通信つきで生成し、すぐ「爆発」状態にする。卵は全員の PC で本来どおり爆発する
+        /// (見た目・音・ダメージの計算はゲーム本来の処理)。卵が見つからなければ false。
+        /// </summary>
+        private static bool EggExplosion(UnityEngine.Vector3 center)
+        {
+            var egg = VanillaAssets.Egg;
+            if (egg == null)
+            {
+                return false;
+            }
+            int count = EggCount.Value;
+            bool spawned = false;
+            for (int i = 0; i < count; i++)
+            {
+                var position = count == 1
+                    ? center
+                    : center + UnityEngine.Quaternion.Euler(0f, 360f * i / count, 0f) * UnityEngine.Vector3.forward * EggSpread.Value;
+                var obj = VanillaAssets.Spawn(egg, position, UnityEngine.Quaternion.identity);
+                if (!obj)
+                {
+                    continue;
+                }
+                spawned = true;
+                if (SemiFunc.IsMultiplayer())
+                {
+                    // ValuableEgg の photonView は Start で入るので、生成直後は PhotonView を直接使う
+                    obj.GetComponent<Photon.Pun.PhotonView>().RPC("SetStateRPC", Photon.Pun.RpcTarget.All, ValuableEgg.EggState.Explode);
+                }
+                else
+                {
+                    obj.GetComponent<ValuableEgg>().SetStateRPC(ValuableEgg.EggState.Explode);
+                }
+            }
+            return spawned;
+        }
 
         private static bool IsChaseState(EnemyDuck.State state)
         {
@@ -107,7 +152,10 @@ namespace MonsterTweaks
                 }
                 var enemy = __instance.enemy;
                 var center = enemy.CenterTransform ? enemy.CenterTransform.position : __instance.transform.position;
-                Boom.Explode(center, VisualSize.Value, Radius.Value, Damage.Value, ThroughWalls.Value, enemy);
+                if (!UseEgg.Value || !EggExplosion(center))
+                {
+                    Boom.Explode(center, VisualSize.Value, Radius.Value, Damage.Value, ThroughWalls.Value, enemy);
+                }
                 Plugin.Verbose($"APEX プレデター: 自爆しました(相手が倒れた: {targetLost})");
                 if (DespawnAfter.Value && enemy.EnemyParent)
                 {

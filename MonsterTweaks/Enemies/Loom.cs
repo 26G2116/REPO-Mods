@@ -7,7 +7,9 @@ namespace MonsterTweaks
 {
     /// <summary>
     /// ルーム(大柄な黒い衣装。両手で叩きつけて衝撃波を出す)。クラス名は EnemyShadow。
-    /// 叩きつけ(EnableHurtCollider。ホストだけが呼ぶ)のときに、周りのプレイヤーへロール効果をかける。
+    /// - スタン無効(StunImmunity)
+    /// - 叩きつけ(EnableHurtCollider。ホストだけが呼ぶ)のときに、周りのプレイヤーと貴重品へロール効果をかける。
+    ///   効果はロールの杖・魔法学校のクリスタルと同じゲーム本来のもの(RollEffect。MOD なしの人にも見える)
     /// </summary>
     internal static class Loom
     {
@@ -17,6 +19,7 @@ namespace MonsterTweaks
         internal static ConfigEntry<bool> StunImmune;
         internal static ConfigEntry<float> Radius;
         internal static ConfigEntry<float> Duration;
+        internal static ConfigEntry<bool> Valuables;
         internal static ConfigEntry<float> SpinSpeed;
         internal static ConfigEntry<float> Push;
 
@@ -24,10 +27,13 @@ namespace MonsterTweaks
         {
             Enabled = cfg.Bind(Section, "有効", true, "ルームの変更を使う");
             StunImmune = cfg.Bind(Section, "スタン無効", true, "銃や爆発、投げつけなどでスタンしない");
-            Radius = Util.Float(cfg, Section, "ロール効果の範囲", 6f, 1f, 20f, "叩きつけた位置からこの距離(m)以内のプレイヤーが転がる");
-            Duration = Util.Float(cfg, Section, "ロール効果の時間", 5f, 0.5f, 15f, "転がされて起き上がれない秒数");
-            SpinSpeed = Util.Float(cfg, Section, "回転の速さ", 15f, 1f, 40f, "転がる回転の速さ(ラジアン/秒)");
-            Push = Util.Float(cfg, Section, "外へ押す力", 6f, 0f, 30f, "叩きつけた位置から外へ転がしていく力。0 ならその場で回るだけ");
+            Radius = Util.Float(cfg, Section, "ロール効果の範囲", 6f, 1f, 20f, "叩きつけた位置からこの距離(m)以内が転がる");
+            Duration = Util.Float(cfg, Section, "ロール効果の時間", 5f, 0.5f, 15f, "転がされる秒数");
+            Valuables = cfg.Bind(Section, "貴重品も転がす", true, "範囲内の貴重品にもロール効果をかける");
+            SpinSpeed = Util.Float(cfg, Section, "代わりの効果の回転の速さ", 15f, 1f, 40f,
+                "ゲーム本来の効果が使えないとき(シングルプレイなど)の、転がる回転の速さ(ラジアン/秒)");
+            Push = Util.Float(cfg, Section, "代わりの効果の外へ押す力", 6f, 0f, 30f,
+                "ゲーム本来の効果が使えないときの、叩きつけた位置から外へ転がしていく力");
         }
 
         private class Memo
@@ -65,7 +71,7 @@ namespace MonsterTweaks
                     return;
                 }
                 memo.LastTime = Time.time;
-                RollEffect.Apply(_pos, Radius.Value, Duration.Value, SpinSpeed.Value, Push.Value);
+                RollEffect.Apply(_pos, __instance.transform.forward, Radius.Value, Duration.Value, Valuables.Value, SpinSpeed.Value, Push.Value);
                 Plugin.Verbose("ルーム: 叩きつけでロール効果をかけました");
             }
         }
