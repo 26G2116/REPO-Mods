@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>RepoModTemplate</AssemblyName>
+    <RootNamespace>RepoModTemplate</RootNamespace>
+    <Version>0.1.0</Version>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <DebugType>portable</DebugType>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!-- 環境に合わせたパス(別の PC では書き換える) -->
+  <PropertyGroup>
+    <GameDir Condition="'$(GameDir)' == ''">D:\SteamLibrary\steamapps\common\REPO</GameDir>
+    <ProfileDir Condition="'$(ProfileDir)' == ''">$(APPDATA)\com.kesomannen.gale\repo\profiles\Repo MODs</ProfileDir>
+    <ManagedDir>$(GameDir)\REPO_Data\Managed</ManagedDir>
+    <BepInExCoreDir>$(ProfileDir)\BepInEx\core</BepInExCoreDir>
+    <PluginInstallDir>$(ProfileDir)\BepInEx\plugins\$(AssemblyName)</PluginInstallDir>
+  </PropertyGroup>
+
+  <!-- 参照 DLL はゲームとプロファイルから直接読む(出力にはコピーしない) -->
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp" HintPath="$(ManagedDir)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="UnityEngine" HintPath="$(ManagedDir)\UnityEngine.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(ManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="BepInEx" HintPath="$(BepInExCoreDir)\BepInEx.dll" Private="false" />
+    <Reference Include="0Harmony" HintPath="$(BepInExCoreDir)\0Harmony.dll" Private="false" />
+  </ItemGroup>
+
+  <!-- Thunderstore / Gale 用パッケージ情報 -->
+  <PropertyGroup>
+    <TsAuthor>shunm</TsAuthor>
+    <TsName>$(AssemblyName)</TsName>
+    <TsDescription>R.E.P.O. MOD template</TsDescription>
+    <TsDependencies>"BepInEx-BepInExPack-5.4.2305"</TsDependencies>
+    <TsStageDir>$(MSBuildProjectDirectory)\obj\package</TsStageDir>
+    <TsDistDir>$(MSBuildProjectDirectory)\..\dist</TsDistDir>
+  </PropertyGroup>
+
+  <!-- Debug ビルド: Gale プロファイルの plugins フォルダへ直接コピー(開発用) -->
+  <Target Name="CopyToGaleProfile" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug' And Exists('$(ProfileDir)')">
+    <MakeDir Directories="$(PluginInstallDir)" />
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)$(TargetName).pdb" DestinationFolder="$(PluginInstallDir)" SkipUnchangedFiles="true" ContinueOnError="true" />
+    <Message Importance="high" Text="-> $(PluginInstallDir) にコピーしました" />
+  </Target>
+
+  <!-- Release ビルド: Gale の「ローカル MOD インポート」用 zip を dist に作る -->
+  <Target Name="PackageForGale" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <RemoveDir Directories="$(TsStageDir)" />
+    <MakeDir Directories="$(TsStageDir);$(TsDistDir)" />
+    <WriteLinesToFile File="$(TsStageDir)\manifest.json" Overwrite="true" Encoding="UTF-8"
+                      Lines="{;  &quot;name&quot;: &quot;$(TsName)&quot;,;  &quot;version_number&quot;: &quot;$(Version)&quot;,;  &quot;website_url&quot;: &quot;&quot;,;  &quot;description&quot;: &quot;$(TsDescription)&quot;,;  &quot;dependencies&quot;: [$(TsDependencies)];}" />
+    <Copy SourceFiles="$(TargetPath);Package\icon.png;Package\README.md" DestinationFolder="$(TsStageDir)" />
+    <Delete Files="$(TsDistDir)\$(TsAuthor)-$(TsName)-$(Version).zip" />
+    <ZipDirectory SourceDirectory="$(TsStageDir)" DestinationFile="$(TsDistDir)\$(TsAuthor)-$(TsName)-$(Version).zip" />
+    <Message Importance="high" Text="-> $(TsDistDir)\$(TsAuthor)-$(TsName)-$(Version).zip を作成しました" />
+  </Target>
+
+</Project>
