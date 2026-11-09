@@ -260,8 +260,23 @@ namespace MonsterTweaks
                 var agent = __instance.enemy.NavMeshAgent;
                 float multiplier = ChaseSpeed.Value;
                 agent.OverrideAgent(agent.Agent.speed * multiplier, agent.DefaultAcceleration * multiplier, 0.2f);
-                float follow = Mathf.Lerp(__instance.enemy.Rigidbody.positionSpeedChase, 25f, __instance.overrideAgentLerp) * multiplier;
-                __instance.enemy.Rigidbody.OverrideFollowPosition(1f, follow, -1f);
+            }
+        }
+
+        /// <summary>
+        /// 体(リジッドボディ)が追従する速さは、MoveTowardPlayer の直後に呼ばれる StateTargetPlayer が
+        /// 毎フレーム 5 に上書きするので、そのあとで倍率をかける。
+        /// </summary>
+        [HarmonyPatch(typeof(EnemyRobe), nameof(EnemyRobe.StateTargetPlayer))]
+        private static class ChaseFollowPatch
+        {
+            private static void Postfix(EnemyRobe __instance)
+            {
+                if (!Active || Mathf.Approximately(ChaseSpeed.Value, 1f) || __instance.currentState != EnemyRobe.State.TargetPlayer)
+                {
+                    return;
+                }
+                __instance.enemy.Rigidbody.OverrideFollowPosition(0.2f, 5f * ChaseSpeed.Value, 30f);
             }
         }
     }

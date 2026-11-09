@@ -128,7 +128,14 @@ namespace MonsterTweaks
                 if (!attacking)
                 {
                     Swung.Remove(__instance);
+                    Scaled.Remove(__instance);
                     return;
+                }
+                // 攻撃に入った最初のフレームで範囲を合わせる(参加者の PC では、自分のアニメより先に
+                // ホストからの攻撃開始 RPC が届くことがあるので、振り下ろしのアニメイベントを待たない)
+                if (Scaled.Add(__instance))
+                {
+                    ApplyScale(__instance.slowWalkerAttack);
                 }
                 // 本来の処理で止められている(凍結中)ときは触らない
                 if (!Enabled.Value || __instance.animator.speed == 0f)
@@ -154,24 +161,31 @@ namespace MonsterTweaks
             private static void Prefix(EnemySlowWalkerAnim __instance)
             {
                 Swung.Add(__instance);
-                var attack = __instance.slowWalkerAttack;
-                if (!attack)
-                {
-                    return;
-                }
-                var memo = OriginalScale.GetValue(attack, a => new ScaleMemo
-                {
-                    Vacuum = a.vacuumSphere ? a.vacuumSphere.localScale : Vector3.one,
-                    VacuumHurt = a.attackVacuumHurtCollider ? a.attackVacuumHurtCollider.transform.localScale : Vector3.one,
-                    ImpactHurt = a.attackImpactHurtColliders ? a.attackImpactHurtColliders.transform.localScale : Vector3.one,
-                    FirstHit = a.hurtColliderFirstHit ? a.hurtColliderFirstHit.transform.localScale : Vector3.one,
-                });
-                float scale = Enabled.Value ? AttackAreaScale.Value : 1f;
-                if (attack.vacuumSphere) attack.vacuumSphere.localScale = memo.Vacuum * scale;
-                if (attack.attackVacuumHurtCollider) attack.attackVacuumHurtCollider.transform.localScale = memo.VacuumHurt * scale;
-                if (attack.attackImpactHurtColliders) attack.attackImpactHurtColliders.transform.localScale = memo.ImpactHurt * scale;
-                if (attack.hurtColliderFirstHit) attack.hurtColliderFirstHit.transform.localScale = memo.FirstHit * scale;
+                ApplyScale(__instance.slowWalkerAttack);
             }
+        }
+
+        /// <summary>今の攻撃で範囲を合わせ済みのアニメ。</summary>
+        private static readonly HashSet<EnemySlowWalkerAnim> Scaled = new HashSet<EnemySlowWalkerAnim>();
+
+        private static void ApplyScale(SlowWalkerAttack attack)
+        {
+            if (!attack)
+            {
+                return;
+            }
+            var memo = OriginalScale.GetValue(attack, a => new ScaleMemo
+            {
+                Vacuum = a.vacuumSphere ? a.vacuumSphere.localScale : Vector3.one,
+                VacuumHurt = a.attackVacuumHurtCollider ? a.attackVacuumHurtCollider.transform.localScale : Vector3.one,
+                ImpactHurt = a.attackImpactHurtColliders ? a.attackImpactHurtColliders.transform.localScale : Vector3.one,
+                FirstHit = a.hurtColliderFirstHit ? a.hurtColliderFirstHit.transform.localScale : Vector3.one,
+            });
+            float scale = Enabled.Value ? AttackAreaScale.Value : 1f;
+            if (attack.vacuumSphere) attack.vacuumSphere.localScale = memo.Vacuum * scale;
+            if (attack.attackVacuumHurtCollider) attack.attackVacuumHurtCollider.transform.localScale = memo.VacuumHurt * scale;
+            if (attack.attackImpactHurtColliders) attack.attackImpactHurtColliders.transform.localScale = memo.ImpactHurt * scale;
+            if (attack.hurtColliderFirstHit) attack.hurtColliderFirstHit.transform.localScale = memo.FirstHit * scale;
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using HarmonyLib;
 
@@ -5,7 +6,7 @@ namespace MonsterTweaks
 {
     /// <summary>
     /// バースデーボーイ(風船を置いていく。風船を割られると激怒して襲ってくる)。
-    /// - スタン無効: ゲーム本来のスタン禁止の仕組み(StateStunned.OverrideDisable)を毎フレームかける
+    /// - スタン無効: スタンを受け付ける EnemyStateStunned.Set を、バースデーボーイのときだけ無視する
     /// - つかまれたら即激怒: つかんだ人をターゲットにして、風船を割られたときと同じ GoToPlayerAngry へ
     /// どちらもホストが判断し、状態は RPC で全員に伝わるので、ホストだけの導入で効く。
     /// </summary>
@@ -24,6 +25,15 @@ namespace MonsterTweaks
             RageOnGrab = cfg.Bind(Section, "つかまれたら激怒", true, "プレイヤーにつかまれた瞬間、風船を割られたときと同じ激怒状態でその人を襲う");
         }
 
+        private static bool StunImmuneActive => Enabled.Value && StunImmune.Value;
+
+        private class BoyRef
+        {
+            internal bool IsBoy;
+        }
+
+        private static readonly ConditionalWeakTable<EnemyStateStunned, BoyRef> IsBoyCache = new ConditionalWeakTable<EnemyStateStunned, BoyRef>();
+
         private static bool CanRage(EnemyBirthdayBoy boy)
         {
             switch (boy.currentState)
@@ -39,6 +49,20 @@ namespace MonsterTweaks
             }
         }
 
+        [HarmonyPatch(typeof(EnemyStateStunned), nameof(EnemyStateStunned.Set))]
+        private static class StunSetPatch
+        {
+            private static bool Prefix(EnemyStateStunned __instance)
+            {
+                if (!StunImmuneActive)
+                {
+                    return true;
+                }
+                bool isBoy = IsBoyCache.GetValue(__instance, s => new BoyRef { IsBoy = s.enemy && s.enemy.GetComponent<EnemyBirthdayBoy>() }).IsBoy;
+                return !isBoy;
+            }
+        }
+
         [HarmonyPatch(typeof(EnemyBirthdayBoy), nameof(EnemyBirthdayBoy.Update))]
         private static class UpdatePatch
         {
@@ -49,10 +73,10 @@ namespace MonsterTweaks
                 {
                     return;
                 }
-                if (StunImmune.Value && enemy.StateStunned)
+                // 設定を ON にしたときにスタン中だったら、本来の流れ(タイマー切れで状態を戻す)ですぐ終わらせる
+                if (StunImmune.Value && enemy.StateStunned && enemy.StateStunned.stunTimer > 0.05f)
                 {
-                    // スタン中ならすぐ解除し、次のフレームまでスタンを受け付けない
-                    enemy.StateStunned.OverrideDisable(0.5f);
+                    enemy.StateStunned.stunTimer = 0.05f;
                 }
                 if (!RageOnGrab.Value || !enemy.Rigidbody || !enemy.Rigidbody.physGrabObject)
                 {

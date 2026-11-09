@@ -52,13 +52,25 @@ namespace MonsterTweaks
             }
         }
 
+        private class OriginalTimes
+        {
+            internal float Angry, Chase;
+        }
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<EnemyElsa, OriginalTimes> Originals =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<EnemyElsa, OriginalTimes>();
+
         [HarmonyPatch(typeof(EnemyElsa), nameof(EnemyElsa.Update))]
         private static class UpdatePatch
         {
             private static void Prefix(EnemyElsa __instance)
             {
+                // 元の値を覚えておき、無効にしたらすぐ戻す
+                var original = Originals.GetValue(__instance, e => new OriginalTimes { Angry = e.angryTimerMax, Chase = e.chaseTimerMax });
                 if (!Enabled.Value)
                 {
+                    __instance.angryTimerMax = original.Angry;
+                    __instance.chaseTimerMax = original.Chase;
                     return;
                 }
                 // 時間の上限は全員の画面の演出(目の光り方など)にも使われるので、毎フレーム設定値に合わせる

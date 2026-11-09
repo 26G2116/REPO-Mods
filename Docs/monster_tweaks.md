@@ -12,7 +12,7 @@
 | 6 | バースデーボーイ | `EnemyBirthdayBoy` | スタン無効、つかまれたら即激怒 | 実装済み(未テスト)。StateStunned.OverrideDisable と GoToPlayerAngry |
 | 7 | ルーム | `EnemyShadow`(確認済み: 叩きつけ = EnableHurtCollider) | 攻撃の爆発で周囲にロール効果(ロールドローンの回転) | 実装済み(未テスト)。`RollEffect.cs`(タンブル + 回転、ホスト側の物理) |
 | 8 | クリーンアップクルー | `EnemyBombThrower` | 顔爆弾の発射後すぐ次を再生・発射 | 実装済み(未テスト)。追加の顔爆弾 = 見た目の複製(スクリプトを外す)をホストが動かし、Net で MOD ありの人に位置を送る。既定は全員 MOD ありのときだけ |
-| 9 | 仕上げ | - | Codex レビュー、README、Release zip | 未着手 |
+| 9 | 仕上げ | - | Codex レビュー、README、Release zip | 完了。Codex の指摘 6 件(RPC 送り主の確認、スタン状態の解除、無効化時の値の復元、攻撃範囲の適用タイミング、途中参加者への見えない爆弾、ローブの追従速度)をすべて確認のうえ修正 |
 
 ## 方針
 - 1 つの MOD に敵ごとのファイル(`MonsterTweaks/Enemies/*.cs`)。設定セクションは「番号. 敵の名前」、キーは日本語

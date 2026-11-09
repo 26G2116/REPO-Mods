@@ -93,8 +93,13 @@ namespace MonsterTweaks
         [HarmonyPatch(typeof(EnemyBombThrower), nameof(EnemyBombThrower.HeadGrownSetRPC))]
         private static class HeadGrownSetPatch
         {
-            private static bool Prefix(EnemyBombThrower __instance, bool _state)
+            private static bool Prefix(EnemyBombThrower __instance, bool _state, PhotonMessageInfo _info)
             {
+                // ホスト以外から届いた RPC は本来の処理(送り主の確認で弾く)に任せる
+                if (!SemiFunc.MasterOnlyRPC(_info))
+                {
+                    return true;
+                }
                 // 投げる(頭がなくなる)瞬間に、本物の顔爆弾がまだ動いていたら、本物には触らず追加の顔爆弾を投げる
                 if (_state || !Active || __instance.head.currentState == EnemyBombThrowerHead.State.Disabled)
                 {
@@ -216,10 +221,22 @@ namespace MonsterTweaks
                     _poseTimer = 0.1f;
                     Net.SendToOthers(Net.KindHeadPose, Id, transform.position, transform.rotation);
                 }
-                if (_age >= Fuse.Value || !Util.IsAuthority)
+                // MOD なしの人が途中参加したら、その人には見えないので爆発させずに消す
+                if (!Util.IsAuthority || (!AllowWithoutMod.Value && !Net.EveryoneHasMod()))
+                {
+                    Fizzle();
+                    return;
+                }
+                if (_age >= Fuse.Value)
                 {
                     Explode();
                 }
+            }
+
+            private void Fizzle()
+            {
+                Net.SendToOthers(Net.KindHeadRemove, Id);
+                Destroy(gameObject);
             }
 
             private void FixedUpdate()
