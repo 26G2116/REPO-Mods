@@ -32,8 +32,11 @@ namespace MonsterTweaks
                 case EnemyBirthdayBoy.State.FlyBackUp:
                 case EnemyBirthdayBoy.State.FlyBackToNavMesh:
                     return false;
+                case EnemyBirthdayBoy.State.Stunned:
+                    // スタン中に激怒させると、本来の処理がすぐスタンに戻し、毎フレーム切り替わってしまう
+                    return false;
                 default:
-                    return !boy.AttackState();
+                    return !boy.AttackState() && !boy.enemy.IsStunned();
             }
         }
 
@@ -47,7 +50,6 @@ namespace MonsterTweaks
                 {
                     return;
                 }
-                // 設定を ON にしたときにスタン中だったら、本来の流れ(タイマー切れで状態を戻す)ですぐ終わらせる
                 if (!RageOnGrab.Value || !enemy.Rigidbody || !enemy.Rigidbody.physGrabObject)
                 {
                     return;

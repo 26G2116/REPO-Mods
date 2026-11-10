@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -40,7 +41,7 @@ namespace MonsterTweaks
             SelfDestructOnTargetLost = cfg.Bind(Section, "相手が倒れて終わったときも自爆", true,
                 "追いかけていた相手が倒れたせいで怒りが終わったときも自爆する");
             UseEgg = cfg.Bind(Section, "人類美術館の卵の爆発を使う", true,
-                "自爆に、人類美術館の緑の卵(約 $4000)の爆発をそのまま使う。MOD なしの参加者にも爆発が見え、ダメージもゲーム本来どおり(1 個でほぼ即死級)。" +
+                "自爆に、人類美術館の緑の卵(約 $4000)の爆発をそのまま使う。MOD なしの参加者にも爆発が見え、ダメージもゲーム本来どおり(1 個でほぼ即死級)。ほかの敵は巻き込まない。" +
                 "OFF なら下の「MOD の爆発」の設定を使う");
             EggCount = Util.Int(cfg, Section, "卵の数", 3, 1, 8, "自爆の位置に並べて爆発させる卵の数(多いほど広範囲)");
             EggSpread = Util.Float(cfg, Section, "卵を並べる半径", 2.5f, 0f, 10f, "卵を 2 個以上にしたとき、ひよこの周りに円形に並べる半径(m)");
@@ -89,7 +90,9 @@ namespace MonsterTweaks
                 }
                 else
                 {
-                    obj.GetComponent<ValuableEgg>().SetStateRPC(ValuableEgg.EggState.Explode);
+                    var single = obj.GetComponent<ValuableEgg>();
+                    SpawnedEggsSingle.Add(single);
+                    single.SetStateRPC(ValuableEgg.EggState.Explode);
                 }
             }
             return spawned;
@@ -98,24 +101,68 @@ namespace MonsterTweaks
         /// <summary>この MOD が生成した卵(PhotonView の ID)。</summary>
         private static readonly HashSet<int> SpawnedEggs = new HashSet<int>();
 
+        /// <summary>シングルプレイで生成した卵(ViewID がないので物で覚える)。</summary>
+        private static readonly HashSet<ValuableEgg> SpawnedEggsSingle = new HashSet<ValuableEgg>();
+
         /// <summary>
-        /// 卵は爆発すると各自の PC で Object.Destroy されるだけなので、部屋の生成記録が残り、
-        /// 途中参加者の画面に割れていない卵が出てしまう。ホストで PhotonNetwork.Destroy して記録ごと消す。
+        /// この MOD が生成した卵の爆発(ホスト / シングルプレイの PC で)。
+        /// - 敵は巻き込まない: 本来の卵は敵にも 300 ダメージを与えるので、爆発の当たり判定の敵への処理を切る
+        ///   (敵へのダメージはホストが計算するので、ホストだけで切れば全員に効く)
+        /// - 卵は爆発すると各自の PC で Object.Destroy されるだけなので、部屋の生成記録が残り、途中参加者の画面に割れていない卵が出てしまう。
+        ///   そこでホストで PhotonNetwork.Destroy して記録ごと消す。ただしすぐ消すと「生成・爆発・破棄」が同じ通信にまとまり、
+        ///   参加者の PC で卵が一度も動かないまま消えて、爆発もダメージも出ないことがある。ホストでは隠すだけにして、少し待ってから消す
         /// </summary>
         [HarmonyPatch(typeof(ValuableEgg), nameof(ValuableEgg.Explode))]
         private static class EggExplodePatch
         {
-            private static void Postfix(ValuableEgg __instance)
+            private static bool Prefix(ValuableEgg __instance)
             {
-                if (!SemiFunc.IsMultiplayer() || !Photon.Pun.PhotonNetwork.IsMasterClient)
+                if (!SemiFunc.IsMasterClientOrSingleplayer())
                 {
-                    return;
+                    return true;
                 }
+                bool ours;
                 var view = __instance.GetComponent<Photon.Pun.PhotonView>();
-                if (view && SpawnedEggs.Remove(view.ViewID))
+                if (SemiFunc.IsMultiplayer())
                 {
-                    Photon.Pun.PhotonNetwork.Destroy(__instance.gameObject);
+                    ours = view && SpawnedEggs.Remove(view.ViewID);
                 }
+                else
+                {
+                    ours = SpawnedEggsSingle.Remove(__instance);
+                }
+                if (!ours)
+                {
+                    return true;
+                }
+                // 本来の Explode と同じ爆発(大きさ 1.5、プレイヤー 100、敵 300)。敵への処理だけ切る
+                var explosion = __instance.particleScriptExplosion.Spawn(__instance.meshRenderer.transform.position, 1.5f, 100, 0, 1f, false, false, 1f, 0f);
+                if (explosion && explosion.HurtCollider)
+                {
+                    explosion.HurtCollider.enemyLogic = false;
+                }
+                __instance.physGrabObject.dead = true;
+                if (!SemiFunc.IsMultiplayer())
+                {
+                    UnityEngine.Object.Destroy(__instance.gameObject);
+                    return false;
+                }
+                __instance.gameObject.SetActive(false);
+                if (Plugin.Instance)
+                {
+                    Plugin.Instance.StartCoroutine(DestroyLater(__instance.gameObject));
+                }
+                return false;
+            }
+        }
+
+        /// <summary>参加者の PC で卵が爆発し終わるのを待ってから、部屋の記録ごと消す。</summary>
+        private static IEnumerator DestroyLater(UnityEngine.GameObject egg)
+        {
+            yield return new UnityEngine.WaitForSeconds(2f);
+            if (egg && Photon.Pun.PhotonNetwork.IsMasterClient)
+            {
+                Photon.Pun.PhotonNetwork.Destroy(egg);
             }
         }
 

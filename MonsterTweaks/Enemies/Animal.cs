@@ -69,6 +69,19 @@ namespace MonsterTweaks
                 if (better)
                 {
                     __instance.playerTarget = better;
+                    // 本来の「気づいた」演出は乗り換え前の相手に送られているので、乗り換えた相手にも送り直す
+                    if (__instance.enemy && !__instance.enemy.IsStunned())
+                    {
+                        int id = better.photonView.ViewID;
+                        if (GameManager.Multiplayer())
+                        {
+                            __instance.photonView.RPC("NoticeRPC", Photon.Pun.RpcTarget.All, id);
+                        }
+                        else
+                        {
+                            __instance.enemyAnimalAnim.NoticeSet(id);
+                        }
+                    }
                 }
             }
         }

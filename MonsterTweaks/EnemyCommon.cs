@@ -190,8 +190,8 @@ namespace MonsterTweaks
         private class AgentMemo
         {
             internal Enemy Enemy;
-            internal float Speed, Acceleration;
-            internal bool Captured;
+            /// <summary>最後に既定の速さへかけた倍率(1 = 何もしていない)。</summary>
+            internal float Applied = 1f;
         }
 
         private static readonly ConditionalWeakTable<EnemyNavMeshAgent, AgentMemo> Agents = new ConditionalWeakTable<EnemyNavMeshAgent, AgentMemo>();
@@ -205,36 +205,36 @@ namespace MonsterTweaks
             });
         }
 
-        /// <summary>既定の速さ(状態が上書きしていないときの速さ)を、元の値 × 倍率 に保つ。</summary>
+        /// <summary>
+        /// 既定の速さ(状態が上書きしていないときの速さ)に倍率をかける。
+        /// DefaultSpeed そのものは書き換えない(多くの敵が「DefaultSpeed × 2」などを OverrideAgent に渡していて、
+        /// そこでも倍率がかかるので、DefaultSpeed に入れておくと二重にかかってしまう)。
+        /// 代わりに、本来の処理が上書きの終わりに速さを DefaultSpeed へ戻した瞬間と、倍率が変わったときに、実際の速さへかける。
+        /// </summary>
         [HarmonyPatch(typeof(EnemyNavMeshAgent), nameof(EnemyNavMeshAgent.Update))]
         private static class AgentUpdatePatch
         {
-            private static void Prefix(EnemyNavMeshAgent __instance)
+            private static void Prefix(EnemyNavMeshAgent __instance, out bool __state)
             {
-                if (!Util.IsAuthority)
+                __state = __instance.OverrideTimer > 0f;
+            }
+
+            private static void Postfix(EnemyNavMeshAgent __instance, bool __state)
+            {
+                if (!Util.IsAuthority || !__instance.Agent || __instance.OverrideTimer > 0f)
                 {
                     return;
                 }
                 var memo = MemoOf(__instance);
-                if (!memo.Captured)
-                {
-                    memo.Captured = true;
-                    memo.Speed = __instance.DefaultSpeed;
-                    memo.Acceleration = __instance.DefaultAcceleration;
-                }
                 float multiplier = SpeedMultiplier(memo.Enemy) * ExtraDefaultSpeed(memo.Enemy);
-                float speed = memo.Speed * multiplier;
-                if (Mathf.Approximately(__instance.DefaultSpeed, speed))
+                bool reset = __state; // この更新で上書きが終わり、本来の処理が速さを DefaultSpeed に戻した
+                if (!reset && Mathf.Approximately(memo.Applied, multiplier))
                 {
                     return;
                 }
-                __instance.DefaultSpeed = speed;
-                __instance.DefaultAcceleration = memo.Acceleration * Mathf.Max(1f, multiplier);
-                if (__instance.OverrideTimer <= 0f && __instance.Agent)
-                {
-                    __instance.Agent.speed = speed;
-                    __instance.Agent.acceleration = __instance.DefaultAcceleration;
-                }
+                memo.Applied = multiplier;
+                __instance.Agent.speed = __instance.DefaultSpeed * multiplier;
+                __instance.Agent.acceleration = __instance.DefaultAcceleration * Mathf.Max(1f, multiplier);
             }
         }
 

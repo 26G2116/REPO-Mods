@@ -44,7 +44,7 @@ namespace MonsterTweaks
         private static bool Holding(EnemySpinny spinny)
         {
             // 引き寄せ中(WaitForRoulette)に動くと、位置がずれてルーレットが中止されるので、回り始めてから歩く
-            return spinny.playerTarget && spinny.RouletteGoingOn();
+            return spinny.playerTarget && spinny.RouletteGoingOn() && spinny.currentState != EnemySpinny.State.WaitForRoulette;
         }
 
         [HarmonyPatch(typeof(EnemySpinny), nameof(EnemySpinny.Update))]

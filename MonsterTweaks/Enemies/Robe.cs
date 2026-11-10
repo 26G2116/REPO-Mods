@@ -46,7 +46,7 @@ namespace MonsterTweaks
             AmbushDistance = Util.Float(cfg, Section, "待ち伏せする距離", 6f, 3f, 15f, "獲物からこの距離(m)くらいの死角を探す");
             PreyViewAngle = Util.Float(cfg, Section, "獲物の視野(片側の角度)", 60f, 30f, 120f,
                 "プレイヤーが見えているとみなす角度。大きいほど慎重に、後ろへ回り込もうとする");
-            SneakSpeed = Util.Float(cfg, Section, "忍び寄る速度倍率", 2f, 0.5f, 6f, "死角へ回り込むときの速さ(探索時の速さに対する倍率)");
+            SneakSpeed = Util.Float(cfg, Section, "忍び寄る速度倍率", 2f, 0.5f, 6f, "死角へ回り込むときの速さ(うろつくときの速さに対する倍率)");
             ChaseSpeed = Util.Float(cfg, Section, "突進の速度倍率", 1.3f, 0.5f, 4f, "襲いかかるときの速さの倍率(1 でゲーム本来と同じ)");
             NeverGiveUp = cfg.Bind(Section, "諦めない", true, "追跡中に去らず、相手の位置を把握している限り追い続ける");
             Retarget = cfg.Bind(Section, "倒したら次の人を狙う", true, "追跡中の相手が倒れたら、把握している範囲で一番近い人を狙う");
@@ -241,9 +241,8 @@ namespace MonsterTweaks
                 }
                 Vector3 destination = brain.HasAmbush ? brain.AmbushPoint : brain.Prey.transform.position;
                 var agent = __instance.enemy.NavMeshAgent;
-                // DefaultSpeed には共通の倍率がすでに入っていて、OverrideAgent でもう一度かかるので 1 回分割っておく
-                float common = EnemyCommon.SpeedMultiplier(__instance.enemy);
-                float speed = agent.DefaultSpeed * SneakSpeed.Value / common;
+                // 共通の倍率は OverrideAgent のパッチ(EnemyCommon)でかかる
+                float speed = agent.DefaultSpeed * SneakSpeed.Value;
                 agent.OverrideAgent(speed, Mathf.Max(agent.DefaultAcceleration, speed * 3f), 0.2f);
                 __instance.enemy.Rigidbody.OverrideFollowPosition(0.2f, 3f * SneakSpeed.Value, -1f);
                 agent.SetDestination(destination);
