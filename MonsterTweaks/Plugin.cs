@@ -39,6 +39,8 @@ namespace MonsterTweaks
             CleanupCrew.Bind(Config);
             Gambit.Bind(Config);
             HeadGrab.Bind(Config);
+            HeartHugger.Bind(Config);
+            Animal.Bind(Config);
             EnemyCommon.Bind(Config);
             Trudge.RegisterRoamSpeed();
 
