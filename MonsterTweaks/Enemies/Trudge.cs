@@ -37,7 +37,7 @@ namespace MonsterTweaks
             RecoverySpeed = Util.Float(cfg, Section, "振り下ろし後のモーションの速さ", 1f, 0.25f, 4f,
                 "振り下ろしたあとのモーションの速さ(見た目。動き出すまでの時間は「攻撃後に動き出すまでの時間」で決まる)");
             AttackDuration = Util.Float(cfg, Section, "攻撃後に動き出すまでの時間", 5f, 0.5f, 15f,
-                "攻撃を始めてから次の行動に移るまでの秒数(前隙を含む。ゲーム本来は 5)。短いほど後隙が減る");
+                "攻撃を始めてから次の行動に移るまでの秒数(前隙を含む。ゲーム本来は 5)。短いほど後隙が減る。前隙より短くしても、振り下ろすまでは動き出さない");
             AttackTriggerDistance = Util.Float(cfg, Section, "攻撃を始める距離", 8f, 1f, 30f,
                 "プレイヤーにこの距離(m)まで近づいたら攻撃を始める(ゲーム本来は 8)");
         }
@@ -74,7 +74,35 @@ namespace MonsterTweaks
             {
                 return Transpile.ReplaceFloat(instructions, 5f, AccessTools.Method(typeof(Trudge), nameof(GetAttackDuration)), "EnemySlowWalker.StateAttack");
             }
+
+            /// <summary>
+            /// 「攻撃後に動き出すまでの時間」を前隙より短くすると、振り下ろす前に攻撃の状態が終わり、歩き出して攻撃が出なくなる。
+            /// 振り下ろし(AttackStart)が済むまでは攻撃の状態を続ける(念のため最長 8 秒で打ち切る)。
+            /// </summary>
+            private static void Prefix(EnemySlowWalker __instance)
+            {
+                if (!Enabled.Value || !Util.IsAuthority || !__instance.animator)
+                {
+                    return;
+                }
+                if (__instance.stateImpulse)
+                {
+                    AttackStarted[__instance] = Time.time;
+                    return;
+                }
+                if (Swung.Contains(__instance.animator) || __instance.stateTimer - Time.deltaTime > 0f)
+                {
+                    return;
+                }
+                if (AttackStarted.TryGetValue(__instance, out var started) && Time.time - started < 8f)
+                {
+                    __instance.stateTimer = Time.deltaTime + 0.05f;
+                }
+            }
         }
+
+        /// <summary>攻撃の状態に入った時刻。</summary>
+        private static readonly Dictionary<EnemySlowWalker, float> AttackStarted = new Dictionary<EnemySlowWalker, float>();
 
         // ---- うろつく速度: ナビメッシュの既定速度への追加の倍率として EnemyCommon に渡す ----
 
