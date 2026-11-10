@@ -113,6 +113,50 @@ namespace MonsterTweaks
             return null;
         }
 
+        private static PrefabRef _zeroGravityProjectile;
+        private static bool _zeroGravitySearched;
+
+        /// <summary>無重力の杖(ItemStaffZeroGravity)が撃つ弾。中に無重力の範囲効果(SemiAreaOfEffect)がある。</summary>
+        internal static PrefabRef ZeroGravityProjectile
+        {
+            get
+            {
+                if (_zeroGravityProjectile == null && !_zeroGravitySearched && StatsManager.instance)
+                {
+                    _zeroGravitySearched = true;
+                    _zeroGravityProjectile = FindZeroGravityProjectile();
+                }
+                return _zeroGravityProjectile;
+            }
+        }
+
+        private static PrefabRef FindZeroGravityProjectile()
+        {
+            foreach (bool useHint in new[] { true, false })
+            {
+                foreach (var item in StatsManager.instance.itemDictionary.Values)
+                {
+                    if (!item || item.prefab == null)
+                    {
+                        continue;
+                    }
+                    if (useHint && (item.prefab.PrefabName == null || !item.prefab.PrefabName.Contains("Gravity")))
+                    {
+                        continue;
+                    }
+                    var prefab = item.prefab.Prefab;
+                    var staff = prefab ? prefab.GetComponent<ItemStaffZeroGravity>() : null;
+                    if (staff && staff.projectilePrefab != null)
+                    {
+                        Plugin.Verbose($"無重力の杖の弾を見つけました: {staff.projectilePrefab.ResourcePath}");
+                        return staff.projectilePrefab;
+                    }
+                }
+            }
+            Plugin.Log.LogWarning("無重力の杖の弾が見つかりませんでした(リーパーの無重力の効果は効きません)");
+            return null;
+        }
+
         private static PrefabRef FindTorqueProjectile()
         {
             foreach (bool useHint in new[] { true, false })

@@ -171,41 +171,8 @@ namespace MonsterTweaks
 
         // ---------------- 届くかどうか ----------------
 
-        private static readonly NavMeshPath ReachPath = new NavMeshPath();
-
-        /// <summary>
-        /// 歩いてその人に攻撃が届くか。ローブのナビメッシュで経路を求め、経路の終わりがその人のすぐそば
-        /// (水平 1.5m・高さ 1.3m 以内。ゲーム本来の攻撃は 2m 以内で始まる)まで行けるかを見る。
-        /// 道のない高所や、ローブが入れない物の下にいると届かない。
-        /// </summary>
-        private static bool Reachable(EnemyRobe robe, PlayerAvatar player)
-        {
-            var nav = robe.enemy.NavMeshAgent;
-            var agent = nav ? nav.Agent : null;
-            if (!agent)
-            {
-                return true; // 判断できないときは届くものとする(本来の動きに任せる)
-            }
-            var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
-            Vector3 from = robe.enemy.transform.position;
-            if (!NavMesh.SamplePosition(from, out var start, 2f, filter))
-            {
-                return true;
-            }
-            Vector3 target = player.transform.position;
-            if (!NavMesh.SamplePosition(target, out var end, 2f, filter))
-            {
-                return false;
-            }
-            if (!NavMesh.CalculatePath(start.position, end.position, filter, ReachPath) || ReachPath.status == NavMeshPathStatus.PathInvalid
-                || ReachPath.corners.Length == 0)
-            {
-                return false;
-            }
-            Vector3 last = ReachPath.corners[ReachPath.corners.Length - 1];
-            Vector3 flat = new Vector3(last.x - target.x, 0f, last.z - target.z);
-            return flat.magnitude <= 1.5f && Mathf.Abs(last.y - target.y) <= 1.3f;
-        }
+        /// <summary>歩いてその人に攻撃が届くか(Reach.cs。道のない高所や、ローブが入れない物の下にいると届かない)。</summary>
+        private static bool Reachable(EnemyRobe robe, PlayerAvatar player) => Reach.Reachable(robe.enemy, player);
 
         /// <summary>このローブが届かないと判断して無視している相手か(ローブごと。別のローブからは届くことがある)。</summary>
         private static bool Ignored(EnemyRobe robe, PlayerAvatar player) =>
