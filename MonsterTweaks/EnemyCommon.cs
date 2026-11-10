@@ -57,10 +57,10 @@ namespace MonsterTweaks
             (typeof(EnemySlowMouth), "スピュワー", "24. スピュワー", false),
             (typeof(EnemyUpscream), "アップスクリーム", "25. アップスクリーム", false),
             (typeof(EnemyTricycle), "ベル", "26. ベル", false),
+            (typeof(EnemySnatcher), "スナッチャー(ポニー)", "27. スナッチャー", false),
             (typeof(EnemyBeamer), "ピエロ", null, false),
             (typeof(EnemyFloater), "メンタリスト", null, false),
             (typeof(EnemyHunter), "ハンツマン", null, false),
-            (typeof(EnemySnatcher), "スナッチャー", null, false),
             (typeof(EnemyVirus), "ウイルス", null, false),
         };
 
@@ -95,6 +95,7 @@ namespace MonsterTweaks
             if (type == typeof(EnemySlowMouth)) return Spewer.Enabled;
             if (type == typeof(EnemyUpscream)) return Upscream.Enabled;
             if (type == typeof(EnemyTricycle)) return Bell.Enabled;
+            if (type == typeof(EnemySnatcher)) return Snatcher.Enabled;
             return null;
         }
 

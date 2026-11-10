@@ -78,3 +78,8 @@
 | 7-2 | アップスクリーム(EnemyUpscream): 吹き飛ばす力・転ぶ時間・体力 2 倍、吹き飛ばしを範囲効果 | 済み(未テスト)。EnemyUpscreamAnim.AttackImpulse を置き換え、相手 + 4m 以内(壁越しは除く)の全員に力 90・転ぶ時間 3 秒 |
 | 7-3 | ベル(EnemyTricycle): 警告 1 回、突進の時間 2 倍 | 済み(未テスト)。SetState の BellRing2/3 を StateBeforeAttack に差し替え(10 秒以内に鳴らしていなければまず BellRing)、attackTimerMax × 2、短い突進(AttackShort の stateTimerMax 3 秒)も × 2 |
 | 7-4 | 仕上げ | 済み。v0.7.0。Codex の指摘のうち 2 件(短い突進の時間、叩かれたときに警告なしで攻撃する)を修正。設定の移行は設定ファイルがまだないので不要 |
+
+## 第 8 ラウンド(2026-11-10 の要望)
+| # | 内容 | 状態 |
+|---|---|---|
+| 8-1 | スナッチャー(ポニー、EnemySnatcher): 狙いを変えたあとの待ち・次の攻撃までの間を 1/3 | 済み(未テスト)。v0.8.0。StateRetarget の間だけ mainAttackCooldown / tongueRetargetCooldown(12 秒)× 1/3、PlayerAttackCooldownSet の間だけ playerAttackCooldownMin/Max(2〜3 秒)× 1/3、AttackPauseTransition で決まった休み(ゲーム側で 3〜6 秒に制限)× 1/3 |

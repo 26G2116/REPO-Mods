@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>MonsterTweaks</AssemblyName>
     <RootNamespace>MonsterTweaks</RootNamespace>
-    <Version>0.7.0</Version>
+    <Version>0.8.0</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <DebugType>portable</DebugType>
@@ -46,7 +46,7 @@
   <PropertyGroup>
     <TsAuthor>shunm</TsAuthor>
     <TsName>$(AssemblyName)</TsName>
-    <TsDescription>Host-side behaviour tweaks for 26 enemies plus per-enemy stun immunity and move speed for every enemy.</TsDescription>
+    <TsDescription>Host-side behaviour tweaks for 27 enemies plus per-enemy stun immunity and move speed for every enemy.</TsDescription>
     <TsDependencies>"BepInEx-BepInExPack-5.4.2305"</TsDependencies>
     <TsStageDir>$(MSBuildProjectDirectory)\obj\package</TsStageDir>
     <TsDistDir>$(MSBuildProjectDirectory)\..\dist</TsDistDir>
