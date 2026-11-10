@@ -7,7 +7,7 @@ namespace MonsterTweaks
 {
     /// <summary>
     /// ギャンビット(ルーレットのモンスター。捕まえた人にルーレットの結果を与える)。クラス名は EnemySpinny。ホストだけで動く。
-    /// - 捕まえても歩き回る: ルーレットの間は本来止まっている(移動先を消している)ので、近くの地点を順に移動先にする。
+    /// - 捕まえても歩き回る: ルーレットが回り始めてから結果が出るまでの間、近くの地点を順に移動先にする(本来は止まっている)。
     ///   捕まった人は口の位置へ引き寄せられ続けるので、一緒に引きずられる
     /// - 結果を周りにも: 結果が出た瞬間に、範囲内のほかのプレイヤーにも同じ効果を送る
     ///   (本来は捕まった本人が自分の PC で受け取る。ほかの人へはホストから HealOther / HurtOther で届ける)
@@ -43,7 +43,8 @@ namespace MonsterTweaks
 
         private static bool Holding(EnemySpinny spinny)
         {
-            return spinny.playerTarget && (spinny.RouletteGoingOn() || (spinny.currentState == EnemySpinny.State.WaitForRoulette && spinny.reachedPoint));
+            // 引き寄せ中(WaitForRoulette)に動くと、位置がずれてルーレットが中止されるので、回り始めてから歩く
+            return spinny.playerTarget && spinny.RouletteGoingOn();
         }
 
         [HarmonyPatch(typeof(EnemySpinny), nameof(EnemySpinny.Update))]

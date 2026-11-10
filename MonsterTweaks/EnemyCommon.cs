@@ -22,6 +22,10 @@ namespace MonsterTweaks
             internal string Name;
             internal ConfigEntry<bool> StunImmune;
             internal ConfigEntry<float> Speed;
+            /// <summary>個別の変更がある敵の「有効」。OFF なら共通設定も効かない(個別の変更がない敵は null)。</summary>
+            internal ConfigEntry<bool> SectionEnabled;
+
+            internal bool On => SectionEnabled == null || SectionEnabled.Value;
         }
 
         /// <summary>(操作クラス, 表示名, 既存のセクション, スタン無効の既定値)</summary>
@@ -62,19 +66,39 @@ namespace MonsterTweaks
 
         private static readonly List<Entry> Entries = new List<Entry>();
 
+        /// <summary>個別の変更がある敵の「有効」(各敵の Bind のあとに呼ぶこと)。</summary>
+        private static ConfigEntry<bool> SectionEnabledOf(Type type)
+        {
+            if (type == typeof(EnemyElsa)) return Elsa.Enabled;
+            if (type == typeof(EnemyDuck)) return ApexPredator.Enabled;
+            if (type == typeof(EnemySlowWalker)) return Trudge.Enabled;
+            if (type == typeof(EnemyThinMan)) return ShadowChild.Enabled;
+            if (type == typeof(EnemyRobe)) return Robe.Enabled;
+            if (type == typeof(EnemyBirthdayBoy)) return BirthdayBoy.Enabled;
+            if (type == typeof(EnemyShadow)) return Loom.Enabled;
+            if (type == typeof(EnemyBombThrower)) return CleanupCrew.Enabled;
+            if (type == typeof(EnemySpinny)) return Gambit.Enabled;
+            if (type == typeof(EnemyHeadGrabber)) return HeadGrab.Enabled;
+            if (type == typeof(EnemyHeartHugger)) return HeartHugger.Enabled;
+            if (type == typeof(EnemyAnimal)) return Animal.Enabled;
+            return null;
+        }
+
         internal static void Bind(ConfigFile cfg)
         {
             foreach (var (type, name, section, stunImmune) in Definitions)
             {
                 string sec = section ?? $"モンスター: {name}";
+                string note = section != null ? "(このセクションの「有効」が OFF のときは効かない)" : "";
                 Entries.Add(new Entry
                 {
                     Type = type,
                     Name = name,
-                    StunImmune = cfg.Bind(sec, "スタン無効", stunImmune, $"{name}が銃や爆発、投げつけなどでスタンしない(クラス名 {type.Name})"),
+                    SectionEnabled = SectionEnabledOf(type),
+                    StunImmune = cfg.Bind(sec, "スタン無効", stunImmune, $"{name}が銃や爆発、投げつけなどでスタンしない{note}(クラス名 {type.Name})"),
                     Speed = Util.Float(cfg, sec, "移動速度倍率(共通)", 1f, 0.2f, 5f,
                         $"{name}の移動の速さの倍率(1 でゲーム本来と同じ)。個別の速度設定がある場合はそれにさらにかかる。" +
-                        "ナビメッシュを使わない動き(飛びかかり・空中移動など)には効かないことがある"),
+                        "ナビメッシュを使わない動き(飛びかかり・空中移動など)には効かないことがある" + note),
                 });
             }
         }
@@ -107,9 +131,17 @@ namespace MonsterTweaks
             }).Entry;
         }
 
-        internal static bool IsStunImmune(Enemy enemy) => For(enemy)?.StunImmune.Value ?? false;
+        internal static bool IsStunImmune(Enemy enemy)
+        {
+            var entry = For(enemy);
+            return entry != null && entry.On && entry.StunImmune.Value;
+        }
 
-        internal static float SpeedMultiplier(Enemy enemy) => For(enemy)?.Speed.Value ?? 1f;
+        internal static float SpeedMultiplier(Enemy enemy)
+        {
+            var entry = For(enemy);
+            return entry != null && entry.On ? entry.Speed.Value : 1f;
+        }
 
         /// <summary>ナビメッシュの既定速度にだけかける追加の倍率(トラッジの「うろつくときの速度倍率」など)。</summary>
         internal static Func<Enemy, float> ExtraDefaultSpeed = _ => 1f;
