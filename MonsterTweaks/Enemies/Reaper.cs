@@ -9,8 +9,8 @@ namespace MonsterTweaks
 {
     /// <summary>
     /// リーパー(両手が刃物のかかし。見つけると全力で走ってくる)。クラス名は EnemyRunner。
-    /// - 狙う相手: 最近見かけたプレイヤーが複数いるとき、一定距離以内に誰かいれば一番近い人を、
-    ///   全員離れていればスタミナが一番少ない人を狙う(スタミナは Stamina.cs。MOD なしの人は推定)
+    /// - 狙う相手: 最近見かけたプレイヤーが複数いるとき、一定距離以内に誰かいれば一番近い人を狙う
+    ///   (全員離れていれば、今の相手を追い続ける)
     ///   追いかけている途中(忍び寄り・攻撃中)に 0.5 秒ごとに決め直す。ホストが決めて本来の RPC で全員に伝わる
     /// </summary>
     internal static class Reaper
@@ -25,7 +25,7 @@ namespace MonsterTweaks
         {
             Enabled = cfg.Bind(Section, "有効", true, "リーパーの変更を使う");
             CloseRange = Util.Float(cfg, Section, "近くの人を優先する距離", 6f, 1f, 30f,
-                "この距離(m)以内に見かけた人がいれば一番近い人を、いなければスタミナが一番少ない人を狙う");
+                "見かけた人のうち、この距離(m)以内にいる一番近い人に狙いを変える(全員離れていれば今の相手のまま)");
             Memory = Util.Float(cfg, Section, "見かけた人を覚えている時間", 4f, 0.5f, 20f,
                 "見かけてからこの秒数のあいだは、狙う相手の候補にする");
         }
@@ -129,8 +129,6 @@ namespace MonsterTweaks
             }
             PlayerAvatar nearest = null;
             float nearestDistance = float.MaxValue;
-            PlayerAvatar weakest = null;
-            float weakestStamina = float.MaxValue;
             foreach (var player in candidates)
             {
                 float distance = Vector3.Distance(from, player.transform.position);
@@ -139,14 +137,8 @@ namespace MonsterTweaks
                     nearestDistance = distance;
                     nearest = player;
                 }
-                float stamina = Stamina.Of(player);
-                if (stamina < weakestStamina - 0.01f || (Mathf.Abs(stamina - weakestStamina) <= 0.01f && player == runner.targetPlayer))
-                {
-                    weakestStamina = stamina;
-                    weakest = player;
-                }
             }
-            return nearestDistance <= CloseRange.Value ? nearest : weakest;
+            return nearestDistance <= CloseRange.Value ? nearest : null;
         }
     }
 }
