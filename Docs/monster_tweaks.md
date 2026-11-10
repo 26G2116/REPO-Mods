@@ -70,3 +70,11 @@
 |---|---|---|
 | 6-1 | ラグラット(EnemyValuableThrower): 投げる力 40、射程 3〜10m、拾ってから投げるまで 0.5 秒 | 済み(未テスト)。v0.6.0。Throw の 20f(係数)と 100f(上限 → 200)、StateTargetPlayer の 3f(1 回目、最短)・5f(最長)・8f(狙う状態 10 秒のうち投げてよい時刻 → 9.5)を差し替え |
 | 6-2 | ラグラット: 発見能力、正確な狙い、物を探す範囲 15m | 済み(未テスト)。v0.6.1。視界の距離 ×2(Util.ScaleVision)、視野の角度 ×1.5・気づくまでの確認回数 ×0.5(Util.ScaleVisionSense)。Throw を同じ手順で置き換え、相手の目の高さへ、速さ(秒速 40m の上限込み)から先読みと落下補正。StateGetValuable の 10f を 15m に。Codex の指摘 2 件(重力は手放すとすぐ戻る、速さの上限)を反映 |
+
+## 第 7 ラウンド(2026-11-10 の要望)
+| # | 内容 | 状態 |
+|---|---|---|
+| 7-1 | スピュワー(EnemySlowMouth): 吐く間隔 1/2、次に取りつくまで 1/3、体力 3 倍 | 済み(未テスト)。StateAttached の最初の更新で stateTimer × 0.5、StateDetach の最初の更新で possessCooldown × 1/3。体力は `HealthBoost.cs`(ノームもこれに統合) |
+| 7-2 | アップスクリーム(EnemyUpscream): 吹き飛ばす力・転ぶ時間・体力 2 倍、吹き飛ばしを範囲効果 | 済み(未テスト)。EnemyUpscreamAnim.AttackImpulse を置き換え、相手 + 4m 以内(壁越しは除く)の全員に力 90・転ぶ時間 3 秒 |
+| 7-3 | ベル(EnemyTricycle): 警告 1 回、突進の時間 2 倍 | 済み(未テスト)。SetState の BellRing2/3 を StateBeforeAttack に差し替え(10 秒以内に鳴らしていなければまず BellRing)、attackTimerMax × 2、短い突進(AttackShort の stateTimerMax 3 秒)も × 2 |
+| 7-4 | 仕上げ | 済み。v0.7.0。Codex の指摘のうち 2 件(短い突進の時間、叩かれたときに警告なしで攻撃する)を修正。設定の移行は設定ファイルがまだないので不要 |

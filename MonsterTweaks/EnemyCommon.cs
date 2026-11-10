@@ -54,13 +54,13 @@ namespace MonsterTweaks
             (typeof(EnemyCeilingEye), "ピーパー", "21. ピーパー", false),
             (typeof(EnemyRunner), "リーパー", "22. リーパー", false),
             (typeof(EnemyValuableThrower), "ラグラット", "23. ラグラット", false),
+            (typeof(EnemySlowMouth), "スピュワー", "24. スピュワー", false),
+            (typeof(EnemyUpscream), "アップスクリーム", "25. アップスクリーム", false),
+            (typeof(EnemyTricycle), "ベル", "26. ベル", false),
             (typeof(EnemyBeamer), "ピエロ", null, false),
             (typeof(EnemyFloater), "メンタリスト", null, false),
             (typeof(EnemyHunter), "ハンツマン", null, false),
-            (typeof(EnemySlowMouth), "スピューワー", null, false),
             (typeof(EnemySnatcher), "スナッチャー", null, false),
-            (typeof(EnemyTricycle), "トライシクル", null, false),
-            (typeof(EnemyUpscream), "アップスクリーム", null, false),
             (typeof(EnemyVirus), "ウイルス", null, false),
         };
 
@@ -92,6 +92,9 @@ namespace MonsterTweaks
             if (type == typeof(EnemyCeilingEye)) return Peeper.Enabled;
             if (type == typeof(EnemyRunner)) return Reaper.Enabled;
             if (type == typeof(EnemyValuableThrower)) return Rugrat.Enabled;
+            if (type == typeof(EnemySlowMouth)) return Spewer.Enabled;
+            if (type == typeof(EnemyUpscream)) return Upscream.Enabled;
+            if (type == typeof(EnemyTricycle)) return Bell.Enabled;
             return null;
         }
 

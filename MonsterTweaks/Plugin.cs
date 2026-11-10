@@ -17,7 +17,7 @@ namespace MonsterTweaks
     {
         public const string PluginGuid = "shunm.MonsterTweaks";
         public const string PluginName = "MonsterTweaks";
-        public const string PluginVersion = "0.6.1";
+        public const string PluginVersion = "0.7.0";
 
         internal static ManualLogSource Log;
         /// <summary>コルーチンを動かすため(プラグインのオブジェクトはシーンをまたいで残る)。</summary>
@@ -55,6 +55,9 @@ namespace MonsterTweaks
             Peeper.Bind(Config);
             Reaper.Bind(Config);
             Rugrat.Bind(Config);
+            Spewer.Bind(Config);
+            Upscream.Bind(Config);
+            Bell.Bind(Config);
             EnemyCommon.Bind(Config);
             Trudge.RegisterRoamSpeed();
 
