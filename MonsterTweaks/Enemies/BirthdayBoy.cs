@@ -5,7 +5,7 @@ namespace MonsterTweaks
 {
     /// <summary>
     /// バースデーボーイ(風船を置いていく。風船を割られると激怒して襲ってくる)。
-    /// - スタン無効: StunImmunity(スタンを受け付ける EnemyStateStunned.Set を無視する)
+    /// - スタン無効: 共通設定(EnemyCommon)。このセクションの「スタン無効」
     /// - つかまれたら即激怒: つかんだ人をターゲットにして、風船を割られたときと同じ GoToPlayerAngry へ
     /// どちらもホストが判断し、状態は RPC で全員に伝わるので、ホストだけの導入で効く。
     /// </summary>
@@ -14,13 +14,11 @@ namespace MonsterTweaks
         private const string Section = "6. バースデーボーイ";
 
         internal static ConfigEntry<bool> Enabled;
-        internal static ConfigEntry<bool> StunImmune;
         internal static ConfigEntry<bool> RageOnGrab;
 
         internal static void Bind(ConfigFile cfg)
         {
             Enabled = cfg.Bind(Section, "有効", true, "バースデーボーイの変更を使う");
-            StunImmune = cfg.Bind(Section, "スタン無効", true, "銃や爆発、投げつけなどでスタンしない");
             RageOnGrab = cfg.Bind(Section, "つかまれたら激怒", true, "プレイヤーにつかまれた瞬間、風船を割られたときと同じ激怒状態でその人を襲う");
         }
 
@@ -50,10 +48,6 @@ namespace MonsterTweaks
                     return;
                 }
                 // 設定を ON にしたときにスタン中だったら、本来の流れ(タイマー切れで状態を戻す)ですぐ終わらせる
-                if (StunImmune.Value)
-                {
-                    StunImmunity.EndCurrentStun(enemy);
-                }
                 if (!RageOnGrab.Value || !enemy.Rigidbody || !enemy.Rigidbody.physGrabObject)
                 {
                     return;

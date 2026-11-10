@@ -7,7 +7,7 @@ namespace MonsterTweaks
 {
     /// <summary>
     /// ルーム(大柄な黒い衣装。両手で叩きつけて衝撃波を出す)。クラス名は EnemyShadow。
-    /// - スタン無効(StunImmunity)
+    /// - スタン無効: 共通設定(EnemyCommon)。このセクションの「スタン無効」
     /// - 叩きつけ(EnableHurtCollider。ホストだけが呼ぶ)のときに、周りのプレイヤーと貴重品へロール効果をかける。
     ///   効果はロールの杖・魔法学校のクリスタルと同じゲーム本来のもの(RollEffect。MOD なしの人にも見える)
     /// </summary>
@@ -16,7 +16,6 @@ namespace MonsterTweaks
         private const string Section = "7. ルーム";
 
         internal static ConfigEntry<bool> Enabled;
-        internal static ConfigEntry<bool> StunImmune;
         internal static ConfigEntry<float> Radius;
         internal static ConfigEntry<float> Duration;
         internal static ConfigEntry<bool> Valuables;
@@ -26,7 +25,6 @@ namespace MonsterTweaks
         internal static void Bind(ConfigFile cfg)
         {
             Enabled = cfg.Bind(Section, "有効", true, "ルームの変更を使う");
-            StunImmune = cfg.Bind(Section, "スタン無効", true, "銃や爆発、投げつけなどでスタンしない");
             Radius = Util.Float(cfg, Section, "ロール効果の範囲", 6f, 1f, 20f, "叩きつけた位置からこの距離(m)以内が転がる");
             Duration = Util.Float(cfg, Section, "ロール効果の時間", 5f, 0.5f, 15f, "転がされる秒数");
             Valuables = cfg.Bind(Section, "貴重品も転がす", true, "範囲内の貴重品にもロール効果をかける");
@@ -42,18 +40,6 @@ namespace MonsterTweaks
         }
 
         private static readonly ConditionalWeakTable<EnemyShadow, Memo> LastSlap = new ConditionalWeakTable<EnemyShadow, Memo>();
-
-        [HarmonyPatch(typeof(EnemyShadow), nameof(EnemyShadow.Update))]
-        private static class UpdatePatch
-        {
-            private static void Prefix(EnemyShadow __instance)
-            {
-                if (Enabled.Value && StunImmune.Value && Util.IsAuthority)
-                {
-                    StunImmunity.EndCurrentStun(__instance.enemy);
-                }
-            }
-        }
 
         [HarmonyPatch(typeof(EnemyShadow), nameof(EnemyShadow.EnableHurtCollider))]
         private static class SlapPatch

@@ -37,6 +37,8 @@ namespace MonsterTweaks
             BirthdayBoy.Bind(Config);
             Loom.Bind(Config);
             CleanupCrew.Bind(Config);
+            EnemyCommon.Bind(Config);
+            Trudge.RegisterRoamSpeed();
 
             Net.Init();
             Boom.Init();

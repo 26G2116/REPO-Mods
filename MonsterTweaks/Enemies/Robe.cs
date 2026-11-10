@@ -241,7 +241,9 @@ namespace MonsterTweaks
                 }
                 Vector3 destination = brain.HasAmbush ? brain.AmbushPoint : brain.Prey.transform.position;
                 var agent = __instance.enemy.NavMeshAgent;
-                float speed = agent.DefaultSpeed * SneakSpeed.Value;
+                // DefaultSpeed には共通の倍率がすでに入っていて、OverrideAgent でもう一度かかるので 1 回分割っておく
+                float common = EnemyCommon.SpeedMultiplier(__instance.enemy);
+                float speed = agent.DefaultSpeed * SneakSpeed.Value / common;
                 agent.OverrideAgent(speed, Mathf.Max(agent.DefaultAcceleration, speed * 3f), 0.2f);
                 __instance.enemy.Rigidbody.OverrideFollowPosition(0.2f, 3f * SneakSpeed.Value, -1f);
                 agent.SetDestination(destination);
@@ -259,7 +261,9 @@ namespace MonsterTweaks
                 }
                 var agent = __instance.enemy.NavMeshAgent;
                 float multiplier = ChaseSpeed.Value;
-                agent.OverrideAgent(agent.Agent.speed * multiplier, agent.DefaultAcceleration * multiplier, 0.2f);
+                // 直前の OverrideAgent で共通の倍率がかかっていて、ここでもう一度かかるので 1 回分割っておく
+                float common = EnemyCommon.SpeedMultiplier(__instance.enemy);
+                agent.OverrideAgent(agent.Agent.speed * multiplier / common, agent.DefaultAcceleration * multiplier, 0.2f);
             }
         }
 

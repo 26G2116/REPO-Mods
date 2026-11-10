@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
@@ -77,36 +76,20 @@ namespace MonsterTweaks
             }
         }
 
-        // ---- うろつく速度(ナビメッシュの既定速度に倍率) ----
+        // ---- うろつく速度: ナビメッシュの既定速度への追加の倍率として EnemyCommon に渡す ----
 
-        private class SpeedMemo
+        internal static void RegisterRoamSpeed()
         {
-            internal float Original;
-        }
-
-        private static readonly ConditionalWeakTable<EnemyNavMeshAgent, SpeedMemo> OriginalSpeed = new ConditionalWeakTable<EnemyNavMeshAgent, SpeedMemo>();
-
-        [HarmonyPatch(typeof(EnemySlowWalker), nameof(EnemySlowWalker.Update))]
-        private static class UpdatePatch
-        {
-            private static void Prefix(EnemySlowWalker __instance)
+            var previous = EnemyCommon.ExtraDefaultSpeed;
+            EnemyCommon.ExtraDefaultSpeed = enemy =>
             {
-                if (!Util.IsAuthority || !__instance.enemy || !__instance.enemy.NavMeshAgent)
+                float value = previous(enemy);
+                if (Enabled.Value && enemy && EnemyCommon.For(enemy)?.Type == typeof(EnemySlowWalker))
                 {
-                    return;
+                    value *= RoamSpeed.Value;
                 }
-                var agent = __instance.enemy.NavMeshAgent;
-                var memo = OriginalSpeed.GetValue(agent, a => new SpeedMemo { Original = a.DefaultSpeed });
-                float wanted = Enabled.Value ? memo.Original * RoamSpeed.Value : memo.Original;
-                if (!Mathf.Approximately(agent.DefaultSpeed, wanted))
-                {
-                    agent.DefaultSpeed = wanted;
-                    if (agent.OverrideTimer <= 0f && agent.Agent)
-                    {
-                        agent.Agent.speed = wanted;
-                    }
-                }
-            }
+                return value;
+            };
         }
 
         // ---- 前隙・振り下ろし後のモーション速度 ----
