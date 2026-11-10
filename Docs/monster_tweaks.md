@@ -83,3 +83,4 @@
 | # | 内容 | 状態 |
 |---|---|---|
 | 8-1 | スナッチャー(ポニー、EnemySnatcher): 狙いを変えたあとの待ち・次の攻撃までの間を 1/3 | 済み(未テスト)。v0.8.0。StateRetarget の間だけ mainAttackCooldown / tongueRetargetCooldown(12 秒)× 1/3、PlayerAttackCooldownSet の間だけ playerAttackCooldownMin/Max(2〜3 秒)× 1/3、AttackPauseTransition で決まった休み(ゲーム側で 3〜6 秒に制限)× 1/3 |
+| 8-2 | スナッチャー: Fable 5.2 のレビュー(8 件)を反映 | 済み。v0.8.1。一時的に書き換えた値を Finalizer で必ず戻す、攻撃後の 3 秒・後ろ蹴り後の 12 秒(MainAttackCooldownSet)も「次の攻撃までの間」で縮める、休みは前後の値の変化で検出(ゲーム側の条件を書き写さない)、毎フレーム出うるログを削除、設定の説明に優先関係を追記。後ろ蹴り・前足パンチ自体の間隔と設定の移行は対応せず |
