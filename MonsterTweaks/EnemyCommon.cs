@@ -48,14 +48,14 @@ namespace MonsterTweaks
             (typeof(EnemyBang), "バンガー", "15. バンガー", false),
             (typeof(EnemyBowtie), "ボウタイ", "16. ボウタイ", false),
             (typeof(EnemyTumbler), "シェフ", "17. シェフ", false),
+            (typeof(EnemyGnome), "ノーム", "18. ノーム", false),
+            (typeof(EnemyHeadController), "ヘッドマン", "19. ヘッドマン", false),
+            (typeof(EnemyHidden), "ヒドゥン", "20. ヒドゥン", false),
+            (typeof(EnemyCeilingEye), "ピーパー", "21. ピーパー", false),
+            (typeof(EnemyRunner), "リーパー", "22. リーパー", false),
             (typeof(EnemyBeamer), "ピエロ", null, false),
-            (typeof(EnemyCeilingEye), "ピーパー", null, false),
             (typeof(EnemyFloater), "メンタリスト", null, false),
-            (typeof(EnemyGnome), "ノーム", null, false),
-            (typeof(EnemyHidden), "ヒドゥン", null, false),
             (typeof(EnemyHunter), "ハンツマン", null, false),
-            (typeof(EnemyHeadController), "ヘッドマン", null, false),
-            (typeof(EnemyRunner), "リーパー", null, false),
             (typeof(EnemySlowMouth), "スピューワー", null, false),
             (typeof(EnemySnatcher), "スナッチャー", null, false),
             (typeof(EnemyTricycle), "トライシクル", null, false),
@@ -86,6 +86,11 @@ namespace MonsterTweaks
             if (type == typeof(EnemyBang)) return Banger.Enabled;
             if (type == typeof(EnemyBowtie)) return Bowtie.Enabled;
             if (type == typeof(EnemyTumbler)) return Chef.Enabled;
+            if (type == typeof(EnemyGnome)) return Gnome.Enabled;
+            if (type == typeof(EnemyHeadController)) return Headman.Enabled;
+            if (type == typeof(EnemyHidden)) return Hidden.Enabled;
+            if (type == typeof(EnemyCeilingEye)) return Peeper.Enabled;
+            if (type == typeof(EnemyRunner)) return Reaper.Enabled;
             return null;
         }
 

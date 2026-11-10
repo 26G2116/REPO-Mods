@@ -22,8 +22,16 @@ namespace MonsterTweaks
         internal const byte KindHeadSpawn = 2;
         internal const byte KindHeadPose = 3;
         internal const byte KindHeadRemove = 4;
+        /// <summary>ホスト → 全員: ピーパーの追加のターゲット(ピーパーの ViewID, プレイヤーの ViewID の配列)。</summary>
+        internal const byte KindPeeperTargets = 5;
+        /// <summary>参加者 → ホスト: 自分のスタミナの割合(0〜1)。</summary>
+        internal const byte KindStamina = 6;
+
+        /// <summary>毎フレーム呼ぶ処理(MOD を入れた全員の PC で動く)。</summary>
+        internal static event Action Tick;
 
         private static readonly Dictionary<byte, Action<object[]>> Handlers = new Dictionary<byte, Action<object[]>>();
+        private static readonly Dictionary<byte, Action<int, object[]>> ClientHandlers = new Dictionary<byte, Action<int, object[]>>();
 
         internal static void Init()
         {
@@ -34,6 +42,24 @@ namespace MonsterTweaks
         }
 
         internal static void Register(byte kind, Action<object[]> handler) => Handlers[kind] = handler;
+
+        /// <summary>参加者からホストへ送られる種類の受け取り(ホストだけで呼ばれる。引数は送った人の ActorNumber と中身)。</summary>
+        internal static void RegisterFromClient(byte kind, Action<int, object[]> handler) => ClientHandlers[kind] = handler;
+
+        /// <summary>参加者からホストへ送る(ホスト自身なら何もしない)。</summary>
+        internal static void SendToHost(byte kind, params object[] data)
+        {
+            if (!SemiFunc.IsMultiplayer() || PhotonNetwork.IsMasterClient || !PhotonNetwork.InRoom)
+            {
+                return;
+            }
+            var payload = new object[data.Length + 1];
+            payload[0] = kind;
+            Array.Copy(data, 0, payload, 1, data.Length);
+            PhotonNetwork.RaiseEvent(EventCode, payload,
+                new RaiseEventOptions { Receivers = ReceiverGroup.MasterClient },
+                SendOptions.SendUnreliable);
+        }
 
         /// <summary>ホストから他の全員へ送る(中身の先頭に種類が付く)。</summary>
         internal static void SendToOthers(byte kind, params object[] data)
@@ -74,15 +100,28 @@ namespace MonsterTweaks
                 return;
             }
             var sender = PhotonNetwork.CurrentRoom?.GetPlayer(photonEvent.Sender);
-            if (sender == null || !sender.IsMasterClient || !Handlers.TryGetValue(kind, out var handler))
+            if (sender == null)
             {
                 return;
             }
             var body = new object[data.Length - 1];
             Array.Copy(data, 1, body, 0, body.Length);
+            Action call;
+            if (sender.IsMasterClient && Handlers.TryGetValue(kind, out var handler))
+            {
+                call = () => handler(body);
+            }
+            else if (!sender.IsMasterClient && PhotonNetwork.IsMasterClient && ClientHandlers.TryGetValue(kind, out var clientHandler))
+            {
+                call = () => clientHandler(sender.ActorNumber, body);
+            }
+            else
+            {
+                return;
+            }
             try
             {
-                handler(body);
+                call();
             }
             catch (Exception e)
             {
@@ -94,6 +133,14 @@ namespace MonsterTweaks
 
         private void Update()
         {
+            try
+            {
+                Tick?.Invoke();
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"毎フレームの処理に失敗しました: {e.Message}");
+            }
             // 部屋に入ったら(入り直したら)、MOD を入れていることを知らせる
             _presenceTimer -= Time.unscaledDeltaTime;
             if (_presenceTimer > 0f)

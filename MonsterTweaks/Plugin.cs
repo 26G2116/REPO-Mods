@@ -17,7 +17,7 @@ namespace MonsterTweaks
     {
         public const string PluginGuid = "shunm.MonsterTweaks";
         public const string PluginName = "MonsterTweaks";
-        public const string PluginVersion = "0.4.0";
+        public const string PluginVersion = "0.5.0";
 
         internal static ManualLogSource Log;
         /// <summary>コルーチンを動かすため(プラグインのオブジェクトはシーンをまたいで残る)。</summary>
@@ -49,12 +49,19 @@ namespace MonsterTweaks
             Banger.Bind(Config);
             Bowtie.Bind(Config);
             Chef.Bind(Config);
+            Gnome.Bind(Config);
+            Headman.Bind(Config);
+            Hidden.Bind(Config);
+            Peeper.Bind(Config);
+            Reaper.Bind(Config);
             EnemyCommon.Bind(Config);
             Trudge.RegisterRoamSpeed();
 
             Net.Init();
             Boom.Init();
             CleanupCrew.Init();
+            Peeper.Init();
+            Stamina.Init();
             _harmony = new Harmony(PluginGuid);
             PatchEach();
             Log.LogInfo($"{PluginName} {PluginVersion} を読み込みました");
