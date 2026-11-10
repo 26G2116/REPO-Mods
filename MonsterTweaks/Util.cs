@@ -39,6 +39,40 @@ namespace MonsterTweaks
             vision.VisionDistanceCloseCrouch = memo.CloseCrouch * multiplier;
         }
 
+        private class SenseMemo
+        {
+            internal float DotStanding, DotCrouch, DotCrawl;
+            internal int Triggers, TriggersCrouch, TriggersCrawl;
+        }
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<EnemyVision, SenseMemo> Senses =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<EnemyVision, SenseMemo>();
+
+        /// <summary>
+        /// 敵の視野の角度(立ち・しゃがみ・這い)を元の角度 × angleMultiplier(最大 180°)に、
+        /// 気づくまでに必要な連続の確認回数を元の回数 × triggerMultiplier(最低 1 回)にする。
+        /// </summary>
+        internal static void ScaleVisionSense(EnemyVision vision, float angleMultiplier, float triggerMultiplier)
+        {
+            if (!vision)
+            {
+                return;
+            }
+            var memo = Senses.GetValue(vision, v => new SenseMemo
+            {
+                DotStanding = v.VisionDotStanding, DotCrouch = v.VisionDotCrouch, DotCrawl = v.VisionDotCrawl,
+                Triggers = v.VisionsToTrigger, TriggersCrouch = v.VisionsToTriggerCrouch, TriggersCrawl = v.VisionsToTriggerCrawl,
+            });
+            float Dot(float original) => Mathf.Cos(Mathf.Min(Mathf.PI, Mathf.Acos(Mathf.Clamp(original, -1f, 1f)) * angleMultiplier));
+            int Count(int original) => Mathf.Max(1, Mathf.RoundToInt(original * triggerMultiplier));
+            vision.VisionDotStanding = Dot(memo.DotStanding);
+            vision.VisionDotCrouch = Dot(memo.DotCrouch);
+            vision.VisionDotCrawl = Dot(memo.DotCrawl);
+            vision.VisionsToTrigger = Count(memo.Triggers);
+            vision.VisionsToTriggerCrouch = Count(memo.TriggersCrouch);
+            vision.VisionsToTriggerCrawl = Count(memo.TriggersCrawl);
+        }
+
         /// <summary>
         /// 生きている(倒れていない)プレイヤーのうち、position に一番近い人。
         /// range が 0 以下なら距離の制限なし。exclude は候補から外す。
