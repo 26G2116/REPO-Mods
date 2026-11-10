@@ -92,7 +92,8 @@ namespace MonsterTweaks
                     continue;
                 }
                 var enemy = parent.Enemy;
-                if (enemy.CurrentState == EnemyState.Despawn || (enemy.HasHealth && enemy.Health.dead))
+                // 上空で待機中のクリーンアップクルーの分身は除く
+                if (enemy.CurrentState == EnemyState.Despawn || (enemy.HasHealth && enemy.Health.dead) || CleanupCrewClones.IsParked(enemy))
                 {
                     continue;
                 }

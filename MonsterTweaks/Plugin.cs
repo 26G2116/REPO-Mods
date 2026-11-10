@@ -17,7 +17,7 @@ namespace MonsterTweaks
     {
         public const string PluginGuid = "shunm.MonsterTweaks";
         public const string PluginName = "MonsterTweaks";
-        public const string PluginVersion = "0.8.1";
+        public const string PluginVersion = "0.8.2";
 
         internal static ManualLogSource Log;
         /// <summary>コルーチンを動かすため(プラグインのオブジェクトはシーンをまたいで残る)。</summary>

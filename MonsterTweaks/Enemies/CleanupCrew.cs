@@ -42,7 +42,7 @@ namespace MonsterTweaks
                 "分身方式を OFF にしたときだけ使う。OFF なら部屋の全員が MOD を入れているときだけ複製を投げる");
             RegrowDelay = Util.Float(cfg, Section, "複製方式: 頭の再生までの時間", 1f, 0f, 10f, "投げてから次の頭が生えるまでの秒数");
             MaxExtraHeads = Util.Int(cfg, Section, "追加の顔爆弾の最大数", 3, 1, 10,
-                "本物の 1 個とは別に、同時に飛ばせる顔爆弾の数(分身方式では分身の数。変更は次に出現したときから)");
+                "本物の 1 個とは別に、同時に飛ばせる顔爆弾の数(分身方式では使う分身の数。増やした分の分身は次に出現したときに作られ、減らした分はすぐ使わなくなる)");
             Fuse = Util.Float(cfg, Section, "複製方式: 爆発までの時間", 7f, 2f, 20f, "投げてから爆発するまでの秒数(本物はおよそ 7〜8 秒)");
             Damage = Util.Int(cfg, Section, "複製方式: ダメージ", 75, 0, 200, "本物の顔爆弾は 75");
             Radius = Util.Float(cfg, Section, "複製方式: 爆発範囲", 3.5f, 1f, 15f, "ダメージが届く距離(m)");
