@@ -43,22 +43,22 @@ namespace MonsterTweaks
             (typeof(EnemyHeadGrabber), "ヘッドグラブ", "10. ヘッドグラブ", false),
             (typeof(EnemyHeartHugger), "ハートハガー", "11. ハートハガー", true),
             (typeof(EnemyAnimal), "アニマル", "12. アニマル", true),
-            (typeof(EnemyBang), "バン", null, false),
+            (typeof(EnemyTick), "ティック", "13. ティック", false),
+            (typeof(EnemyOogly), "ウーグリー", "14. ウーグリー", false),
+            (typeof(EnemyBang), "バンガー", "15. バンガー", false),
+            (typeof(EnemyBowtie), "ボウタイ", "16. ボウタイ", false),
+            (typeof(EnemyTumbler), "シェフ", "17. シェフ", false),
             (typeof(EnemyBeamer), "ピエロ", null, false),
-            (typeof(EnemyBowtie), "ボウタイ", null, false),
             (typeof(EnemyCeilingEye), "ピーパー", null, false),
             (typeof(EnemyFloater), "メンタリスト", null, false),
             (typeof(EnemyGnome), "ノーム", null, false),
             (typeof(EnemyHidden), "ヒドゥン", null, false),
             (typeof(EnemyHunter), "ハンツマン", null, false),
             (typeof(EnemyHeadController), "ヘッドマン", null, false),
-            (typeof(EnemyOogly), "ウーグリー", null, false),
             (typeof(EnemyRunner), "リーパー", null, false),
             (typeof(EnemySlowMouth), "スピューワー", null, false),
             (typeof(EnemySnatcher), "スナッチャー", null, false),
-            (typeof(EnemyTick), "ティック", null, false),
             (typeof(EnemyTricycle), "トライシクル", null, false),
-            (typeof(EnemyTumbler), "シェフ", null, false),
             (typeof(EnemyUpscream), "アップスクリーム", null, false),
             (typeof(EnemyValuableThrower), "ラグラット", null, false),
             (typeof(EnemyVirus), "ウイルス", null, false),
@@ -81,6 +81,11 @@ namespace MonsterTweaks
             if (type == typeof(EnemyHeadGrabber)) return HeadGrab.Enabled;
             if (type == typeof(EnemyHeartHugger)) return HeartHugger.Enabled;
             if (type == typeof(EnemyAnimal)) return Animal.Enabled;
+            if (type == typeof(EnemyTick)) return Tick.Enabled;
+            if (type == typeof(EnemyOogly)) return Oogly.Enabled;
+            if (type == typeof(EnemyBang)) return Banger.Enabled;
+            if (type == typeof(EnemyBowtie)) return Bowtie.Enabled;
+            if (type == typeof(EnemyTumbler)) return Chef.Enabled;
             return null;
         }
 

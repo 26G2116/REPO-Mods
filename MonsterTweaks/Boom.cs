@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -37,14 +38,24 @@ namespace MonsterTweaks
             }
             SpawnVisual(position, visualSize);
             Net.SendToOthers(Net.KindExplosion, position, visualSize);
-            if (damage <= 0)
+            HurtPlayers(position, radius, damage, throughWalls, source);
+        }
+
+        /// <summary>
+        /// 範囲内のプレイヤーに直接ダメージを与える(ホスト専用)。見た目は出さない。
+        /// ゲームの爆発に追加のダメージを上乗せするときにも使う。
+        /// alreadyHit を渡すと、そこにいる人は飛ばし、ダメージを与えた人を書き足す(同じ爆発で 2 回当てないため)。
+        /// </summary>
+        internal static void HurtPlayers(Vector3 position, float radius, int damage, bool throughWalls, Enemy source, HashSet<PlayerAvatar> alreadyHit = null)
+        {
+            if (!Util.IsAuthority || damage <= 0)
             {
                 return;
             }
             int enemyIndex = source ? SemiFunc.EnemyGetIndex(source) : -1;
             foreach (var player in SemiFunc.PlayerGetList())
             {
-                if (!player || player.isDisabled)
+                if (!player || player.isDisabled || (alreadyHit != null && alreadyHit.Contains(player)))
                 {
                     continue;
                 }
@@ -57,6 +68,7 @@ namespace MonsterTweaks
                 {
                     continue;
                 }
+                alreadyHit?.Add(player);
                 if (player.isLocal || !SemiFunc.IsMultiplayer())
                 {
                     player.playerHealth.Hurt(damage, false, enemyIndex);

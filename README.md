@@ -5,7 +5,7 @@ R.E.P.O. 用 BepInEx 5 プラグインのテンプレート。
 ## 構成
 - `RepoMod.sln` … Visual Studio で開くソリューション
 - `LoadProgress/` … マルチのロード進捗を 10 段階で表示する MOD(詳細: `Docs/loading_flow.md`)
-- `MonsterTweaks/` … モンスターの挙動を変える MOD(12 体の強化 + 全モンスター共通のスタン無効・速度)(詳細: `Docs/monster_tweaks.md`、`MonsterTweaks/Package/README.md`)
+- `MonsterTweaks/` … モンスターの挙動を変える MOD(17 体の強化 + 全モンスター共通のスタン無効・速度)(詳細: `Docs/monster_tweaks.md`、`MonsterTweaks/Package/README.md`)
 - `Translation/` … 他の人の MOD を日本語にする翻訳表(XUnity.AutoTranslator 用、詳細: `Translation/README.md`)
 - `Tools/` … 逆コンパイルした MOD から英語の文を抜き出すスクリプト
 - `RepoModTemplate/Plugin.cs` … プラグイン本体(起動ログ、設定、Harmony 適用)
