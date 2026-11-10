@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -19,6 +20,8 @@ namespace MonsterTweaks
     /// - 諦めない(既定 OFF): 追跡中に去らない
     /// - 倒したら次の人へ: 相手が倒れたら、見えている一番近い人に乗り換える
     /// - 突進の速さに倍率。忍び寄る速さは突進より速くならない
+    /// - 認識力: 視界の距離・視野の角度・気づくまでの速さを引き上げる(ほかの敵の強化とのバランス)
+    /// - 届かない相手: 道のない高所や物の下など、歩いて届かない相手は少しの間あきらめ、見えている届く人へすぐ乗り換える
     /// </summary>
     internal static class Robe
     {
@@ -37,6 +40,11 @@ namespace MonsterTweaks
         internal static ConfigEntry<float> ChaseSpeed;
         internal static ConfigEntry<bool> NeverGiveUp;
         internal static ConfigEntry<bool> Retarget;
+        internal static ConfigEntry<float> VisionRange;
+        internal static ConfigEntry<float> VisionAngle;
+        internal static ConfigEntry<float> NoticeSpeed;
+        internal static ConfigEntry<bool> SkipUnreachable;
+        internal static ConfigEntry<float> UnreachableIgnoreTime;
 
         internal static void Bind(ConfigFile cfg)
         {
@@ -62,6 +70,16 @@ namespace MonsterTweaks
             ChaseSpeed = Util.Float(cfg, Section, "突進の速度倍率", 1.3f, 0.5f, 4f, "襲いかかるときの速さの倍率(1 でゲーム本来と同じ)");
             NeverGiveUp = cfg.Bind(Section, "諦めない", false, "追跡中に去らず、相手が把握する範囲にいる限り追い続ける");
             Retarget = cfg.Bind(Section, "倒したら次の人を狙う", true, "追跡中の相手が倒れたら、見えている一番近い人を狙う(壁越しの人は狙わない)");
+            VisionRange = Util.Float(cfg, Section, "視界の距離の倍率", 2f, 0.5f, 5f,
+                "プレイヤーに気づく距離の倍率(1 でゲーム本来と同じ)");
+            VisionAngle = Util.Float(cfg, Section, "視野の広さの倍率", 1.5f, 0.5f, 3f,
+                "見える角度の倍率(1 でゲーム本来と同じ。最大で真後ろまで)");
+            NoticeSpeed = Util.Float(cfg, Section, "気づくまでの時間の倍率", 0.4f, 0.1f, 2f,
+                "見えてから気づくまでの時間の倍率(小さいほど早く気づく。1 でゲーム本来と同じ)");
+            SkipUnreachable = cfg.Bind(Section, "届かない相手はすぐ乗り換える", true,
+                "道のない高所や物の下など、歩いて届かない相手を狙っているときは、見えている届く人へすぐ乗り換える");
+            UnreachableIgnoreTime = Util.Float(cfg, Section, "届かない相手を無視する時間", 5f, 1f, 30f,
+                "届かないと分かった相手を、この秒数のあいだ狙わない(その後、届く場所に来ていればまた狙う)");
         }
 
         private class Brain
@@ -73,6 +91,10 @@ namespace MonsterTweaks
             internal bool HasAmbush;
             internal Vector3 AmbushPoint;
             internal bool Driving;
+            internal float ReachTimer;
+            internal float UnreachableFor;
+            /// <summary>届かないと分かった相手と、無視し終える時刻。</summary>
+            internal readonly Dictionary<PlayerAvatar, float> Unreachable = new Dictionary<PlayerAvatar, float>();
         }
 
         private static readonly ConditionalWeakTable<EnemyRobe, Brain> Brains = new ConditionalWeakTable<EnemyRobe, Brain>();
@@ -147,6 +169,80 @@ namespace MonsterTweaks
             return bestScore > float.MinValue;
         }
 
+        // ---------------- 届くかどうか ----------------
+
+        private static readonly NavMeshPath ReachPath = new NavMeshPath();
+
+        /// <summary>
+        /// 歩いてその人に攻撃が届くか。ローブのナビメッシュで経路を求め、経路の終わりがその人のすぐそば
+        /// (水平 1.5m・高さ 1.3m 以内。ゲーム本来の攻撃は 2m 以内で始まる)まで行けるかを見る。
+        /// 道のない高所や、ローブが入れない物の下にいると届かない。
+        /// </summary>
+        private static bool Reachable(EnemyRobe robe, PlayerAvatar player)
+        {
+            var nav = robe.enemy.NavMeshAgent;
+            var agent = nav ? nav.Agent : null;
+            if (!agent)
+            {
+                return true; // 判断できないときは届くものとする(本来の動きに任せる)
+            }
+            var filter = new NavMeshQueryFilter { agentTypeID = agent.agentTypeID, areaMask = agent.areaMask };
+            Vector3 from = robe.enemy.transform.position;
+            if (!NavMesh.SamplePosition(from, out var start, 2f, filter))
+            {
+                return true;
+            }
+            Vector3 target = player.transform.position;
+            if (!NavMesh.SamplePosition(target, out var end, 2f, filter))
+            {
+                return false;
+            }
+            if (!NavMesh.CalculatePath(start.position, end.position, filter, ReachPath) || ReachPath.status == NavMeshPathStatus.PathInvalid
+                || ReachPath.corners.Length == 0)
+            {
+                return false;
+            }
+            Vector3 last = ReachPath.corners[ReachPath.corners.Length - 1];
+            Vector3 flat = new Vector3(last.x - target.x, 0f, last.z - target.z);
+            return flat.magnitude <= 1.5f && Mathf.Abs(last.y - target.y) <= 1.3f;
+        }
+
+        /// <summary>このローブが届かないと判断して無視している相手か(ローブごと。別のローブからは届くことがある)。</summary>
+        private static bool Ignored(EnemyRobe robe, PlayerAvatar player) =>
+            SkipUnreachable.Value && player && Brains.TryGetValue(robe, out var brain)
+            && brain.Unreachable.TryGetValue(player, out var until) && Time.time < until;
+
+        private static void MarkUnreachable(EnemyRobe robe, PlayerAvatar player)
+        {
+            Brains.GetOrCreateValue(robe).Unreachable[player] = Time.time + UnreachableIgnoreTime.Value;
+            Plugin.Verbose($"ローブ: {player.playerName} には届かないので、しばらく狙いません");
+        }
+
+        /// <summary>見えていて(壁越しでなく)、届き、無視していない一番近い生存者。</summary>
+        private static PlayerAvatar NearestReachableVisible(EnemyRobe robe, PlayerAvatar exclude)
+        {
+            var eyes = robe.enemy.Vision ? robe.enemy.Vision.VisionTransform.position : RobePosition(robe) + Vector3.up;
+            PlayerAvatar best = null;
+            float bestDistance = AwarenessRange.Value;
+            foreach (var player in SemiFunc.PlayerGetList())
+            {
+                if (!player || player.isDisabled || player == exclude || Ignored(robe, player))
+                {
+                    continue;
+                }
+                Vector3 target = player.PlayerVisionTarget ? player.PlayerVisionTarget.VisionTransform.position : player.transform.position;
+                float distance = Vector3.Distance(eyes, target);
+                if (distance >= bestDistance || Physics.Linecast(eyes, target, LayerMask.GetMask("Default"), QueryTriggerInteraction.Ignore)
+                    || !Reachable(robe, player))
+                {
+                    continue;
+                }
+                bestDistance = distance;
+                best = player;
+            }
+            return best;
+        }
+
         /// <summary>ローブの目からその人が見通せるか(間に壁がない)。</summary>
         private static bool HasLineOfSight(EnemyRobe robe, PlayerAvatar player)
         {
@@ -163,7 +259,7 @@ namespace MonsterTweaks
             float bestDistance = range;
             foreach (var player in SemiFunc.PlayerGetList())
             {
-                if (!player || player.isDisabled || player == exclude)
+                if (!player || player.isDisabled || player == exclude || Ignored(robe, player))
                 {
                     continue;
                 }
@@ -208,6 +304,12 @@ namespace MonsterTweaks
         {
             private static bool Prefix(EnemyRobe __instance)
             {
+                // 届かないと分かって無視している相手は、見えても狙わない(本来の突進がすぐ始まって堂々巡りになるため)
+                if (Active && __instance.enemy && __instance.enemy.Vision && Ignored(__instance, __instance.enemy.Vision.onVisionTriggeredPlayer)
+                    && __instance.currentState != EnemyRobe.State.Attack)
+                {
+                    return false;
+                }
                 if (!Active || !Stalk.Value || !__instance.enemy || !__instance.enemy.Vision || __instance.enemy.IsStunned()
                     || __instance.enemy.CurrentState == EnemyState.Despawn || !Wandering(__instance.currentState))
                 {
@@ -258,13 +360,20 @@ namespace MonsterTweaks
                 brain.Driving = false;
                 var state = __instance.currentState;
 
+                // 届かない相手を追っている(物の下をのぞき込んでいる)なら、見えている届く人へ乗り換える
+                if (SkipUnreachable.Value && HandleUnreachable(__instance, brain, state))
+                {
+                    return;
+                }
+
                 // 追跡中: 相手が倒れたら見えている人へ乗り換え、(設定で)諦めない
                 if (state == EnemyRobe.State.TargetPlayer)
                 {
                     var target = __instance.targetPlayer;
                     if ((!target || target.isDisabled) && Retarget.Value)
                     {
-                        var next = NearestVisiblePlayer(__instance, AwarenessRange.Value, target);
+                        // 届く人を優先し、いなければ見えている人
+                        var next = NearestReachableVisible(__instance, target) ?? NearestVisiblePlayer(__instance, AwarenessRange.Value, target);
                         if (next)
                         {
                             SetTarget(__instance, next);
@@ -293,14 +402,14 @@ namespace MonsterTweaks
                 if (Hunt.Value)
                 {
                     brain.ThinkTimer -= Time.deltaTime;
-                    if (brain.ThinkTimer <= 0f || !brain.Prey || brain.Prey.isDisabled)
+                    if (brain.ThinkTimer <= 0f || !brain.Prey || brain.Prey.isDisabled || Ignored(__instance, brain.Prey))
                     {
                         brain.ThinkTimer = 0.2f;
-                        brain.Prey = Util.NearestAlivePlayer(RobePosition(__instance), AwarenessRange.Value);
+                        brain.Prey = NearestAliveNotIgnored(__instance, AwarenessRange.Value);
                         brain.LastSeen = Time.time;
                     }
                 }
-                else if (!Stalk.Value || !brain.Prey || brain.Prey.isDisabled || Time.time - brain.LastSeen > StalkMemory.Value)
+                else if (!Stalk.Value || !brain.Prey || brain.Prey.isDisabled || Ignored(__instance, brain.Prey) || Time.time - brain.LastSeen > StalkMemory.Value)
                 {
                     if (brain.Prey)
                     {
@@ -346,6 +455,102 @@ namespace MonsterTweaks
                     brain.HasAmbush = false;
                 }
                 brain.Driving = true;
+            }
+        }
+
+        private static PlayerAvatar NearestAliveNotIgnored(EnemyRobe robe, float range)
+        {
+            Vector3 position = RobePosition(robe);
+            PlayerAvatar best = null;
+            float bestDistance = range;
+            foreach (var player in SemiFunc.PlayerGetList())
+            {
+                if (!player || player.isDisabled || Ignored(robe, player))
+                {
+                    continue;
+                }
+                float distance = Vector3.Distance(position, player.transform.position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = player;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// 追跡中・物の下をのぞき込み中に、相手に届かなければ乗り換える。乗り換えたら true。
+        /// 追跡中は 0.3 秒ごとに確かめ、0.6 秒続けて届かなければ届かないとみなす(段差の上り下りの一瞬で切り替えない)。
+        /// 物の下をのぞき込み始めたら(本来の LookUnder)、その場で届かないとみなす。
+        /// </summary>
+        private static bool HandleUnreachable(EnemyRobe robe, Brain brain, EnemyRobe.State state)
+        {
+            bool lookUnder = state == EnemyRobe.State.LookUnderStart || state == EnemyRobe.State.LookUnder;
+            if (state != EnemyRobe.State.TargetPlayer && !lookUnder)
+            {
+                brain.UnreachableFor = 0f;
+                return false;
+            }
+            var target = robe.targetPlayer;
+            if (!target || target.isDisabled)
+            {
+                return false;
+            }
+            if (!lookUnder)
+            {
+                brain.ReachTimer -= Time.deltaTime;
+                if (brain.ReachTimer > 0f)
+                {
+                    return false;
+                }
+                brain.ReachTimer = 0.3f;
+                if (Reachable(robe, target))
+                {
+                    brain.UnreachableFor = 0f;
+                    return false;
+                }
+                brain.UnreachableFor += 0.3f;
+                if (brain.UnreachableFor < 0.6f)
+                {
+                    return false;
+                }
+            }
+            var next = NearestReachableVisible(robe, target);
+            if (!next)
+            {
+                return false; // ほかに狙える人がいなければ、本来の動き(のぞき込み・探索)に任せる
+            }
+            MarkUnreachable(robe, target);
+            brain.UnreachableFor = 0f;
+            brain.Prey = null;
+            robe.targetPlayer = next;
+            if (state != EnemyRobe.State.TargetPlayer)
+            {
+                robe.UpdateState(EnemyRobe.State.TargetPlayer);
+            }
+            else
+            {
+                robe.stateTimer = Mathf.Max(robe.stateTimer, 2f);
+            }
+            SetTarget(robe, next);
+            Plugin.Verbose($"ローブ: 狙いを {next.playerName} に切り替えました");
+            return true;
+        }
+
+        /// <summary>認識力: 視界の距離・視野の角度・気づくまでの速さ(視界の判定はホストが行う)。</summary>
+        [HarmonyPatch(typeof(EnemyRobe), nameof(EnemyRobe.Update))]
+        private static class PerceptionPatch
+        {
+            private static void Prefix(EnemyRobe __instance)
+            {
+                if (!Util.IsAuthority || !__instance.enemy || !__instance.enemy.Vision)
+                {
+                    return;
+                }
+                bool on = Enabled.Value;
+                Util.ScaleVision(__instance.enemy.Vision, on ? VisionRange.Value : 1f);
+                Util.ScaleVisionSense(__instance.enemy.Vision, on ? VisionAngle.Value : 1f, on ? NoticeSpeed.Value : 1f);
             }
         }
 
