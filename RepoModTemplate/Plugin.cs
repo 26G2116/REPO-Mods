@@ -48,9 +48,7 @@ namespace RepoModTemplate
             Log.LogInfo($"{PluginName} {PluginVersion} を読み込みました");
         }
 
-        private void OnDestroy()
-        {
-            _harmony?.UnpatchSelf();
-        }
+        // OnDestroy でパッチを外さない: BepInEx の管理オブジェクトはシーン遷移で壊れることがあり、
+        // そのときに外すと MOD の変更が黙って全部効かなくなる
     }
 }

@@ -117,7 +117,7 @@ namespace MonsterTweaks
             private static void Postfix(EnemyTick __instance)
             {
                 var health = __instance.enemy ? __instance.enemy.Health : null;
-                if (!health || !health.onObjectHurtPlayer)
+                if (!Util.IsAuthority || !health || !health.onObjectHurtPlayer)
                 {
                     return;
                 }

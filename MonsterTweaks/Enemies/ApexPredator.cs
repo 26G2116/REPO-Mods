@@ -148,9 +148,9 @@ namespace MonsterTweaks
                     return false;
                 }
                 __instance.gameObject.SetActive(false);
-                if (Plugin.Instance)
+                if (Net.Runner)
                 {
-                    Plugin.Instance.StartCoroutine(DestroyLater(__instance.gameObject));
+                    Net.Runner.StartCoroutine(DestroyLater(__instance.gameObject));
                 }
                 return false;
             }

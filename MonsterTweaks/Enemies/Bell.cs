@@ -97,12 +97,20 @@ namespace MonsterTweaks
             {
                 if (__instance.attackTimerMax == Unset)
                 {
-                    __instance.attackTimerMax = __state; // この更新では決まらなかった
-                    return;
+                    return; // この更新では決まらなかった(Finalizer で元に戻す)
                 }
                 if (Enabled.Value && Util.IsAuthority)
                 {
                     __instance.attackTimerMax *= AttackDuration.Value;
+                }
+            }
+
+            /// <summary>目印の値が残っていたら元に戻す(元の処理で例外が出ても必ず戻る)。</summary>
+            private static void Finalizer(EnemyTricycle __instance, float __state)
+            {
+                if (__instance.attackTimerMax == Unset)
+                {
+                    __instance.attackTimerMax = __state;
                 }
             }
         }

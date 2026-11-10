@@ -59,12 +59,10 @@ namespace MonsterTweaks
                 {
                     continue;
                 }
-                Vector3 target = player.PlayerVisionTarget ? player.PlayerVisionTarget.VisionTransform.position : player.transform.position;
-                if (Vector3.Distance(position, target) > radius)
-                {
-                    continue;
-                }
-                if (!throughWalls && Physics.Linecast(position, target, LayerMask.GetMask("Default"), QueryTriggerInteraction.Ignore))
+                // 本来の爆発は体のどこかに当たれば効くので、目の高さと体の中心のどちらかが範囲内で見通せれば当てる
+                Vector3 eyes = player.PlayerVisionTarget ? player.PlayerVisionTarget.VisionTransform.position : player.transform.position;
+                Vector3 body = player.transform.position + Vector3.up * 0.5f;
+                if (!Reaches(position, eyes, radius, throughWalls) && !Reaches(position, body, radius, throughWalls))
                 {
                     continue;
                 }
@@ -79,6 +77,12 @@ namespace MonsterTweaks
                     player.playerHealth.HurtOther(damage, Vector3.zero, false, enemyIndex);
                 }
             }
+        }
+
+        private static bool Reaches(Vector3 from, Vector3 to, float radius, bool throughWalls)
+        {
+            return Vector3.Distance(from, to) <= radius
+                && (throughWalls || !Physics.Linecast(from, to, LayerMask.GetMask("Default"), QueryTriggerInteraction.Ignore));
         }
 
         /// <summary>ダメージなしの爆発エフェクトと音を出す。</summary>

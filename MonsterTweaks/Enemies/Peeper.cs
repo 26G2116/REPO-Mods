@@ -74,10 +74,13 @@ namespace MonsterTweaks
 
         private static bool Sees(EnemyCeilingEye eye, PlayerAvatar player)
         {
+            // 本来の StateHasTarget と同じく、中心・左右・上下の 5 か所から見る
             Vector3 origin = eye.enemy.Vision.VisionTransform.position;
             return SemiFunc.PlayerVisionCheck(origin, 20f, player, true)
                 || SemiFunc.PlayerVisionCheck(origin + eye.transform.right * 0.25f, 20f, player, true)
-                || SemiFunc.PlayerVisionCheck(origin - eye.transform.right * 0.25f, 20f, player, true);
+                || SemiFunc.PlayerVisionCheck(origin - eye.transform.right * 0.25f, 20f, player, true)
+                || SemiFunc.PlayerVisionCheck(origin + eye.transform.up * 0.25f, 20f, player, true)
+                || SemiFunc.PlayerVisionCheck(origin - eye.transform.up * 0.25f, 20f, player, true);
         }
 
         /// <summary>目が合ったら: すでに本来のターゲットがいれば、追加のターゲットにする。</summary>
@@ -261,6 +264,8 @@ namespace MonsterTweaks
         {
             internal int[] Players = new int[0];
             internal readonly HashSet<int> Started = new HashSet<int>();
+            /// <summary>記録した階(階が変わると同じ ViewID が別の目玉に使われるので、古い記録は捨てる)。</summary>
+            internal UnityEngine.Object Level;
         }
 
         private static readonly Dictionary<int, Shown> ShownByEye = new Dictionary<int, Shown>();
@@ -271,6 +276,12 @@ namespace MonsterTweaks
             {
                 shown = new Shown();
                 ShownByEye[eyeViewId] = shown;
+            }
+            if (shown.Level != LevelGenerator.Instance)
+            {
+                // 前の階の記録(同じ ViewID が別の目玉に使われている)は捨てる
+                shown.Started.Clear();
+                shown.Level = LevelGenerator.Instance;
             }
             shown.Players = players ?? new int[0];
             shown.Started.IntersectWith(shown.Players);
@@ -284,6 +295,11 @@ namespace MonsterTweaks
         {
             if (ShownByEye.Count == 0 || !eye.photonView || !ShownByEye.TryGetValue(eye.photonView.ViewID, out var shown))
             {
+                return;
+            }
+            if (shown.Level != LevelGenerator.Instance)
+            {
+                ShownByEye.Remove(eye.photonView.ViewID);
                 return;
             }
             if (eye.currentState != EnemyCeilingEye.State.HasTarget)

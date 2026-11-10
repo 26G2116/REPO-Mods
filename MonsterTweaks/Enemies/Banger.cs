@@ -64,9 +64,9 @@ namespace MonsterTweaks
                 }
                 float radius = HurtRadius(explosion);
                 Vector3 position = explosion.transform.position;
-                if (Plugin.Instance)
+                if (Net.Runner)
                 {
-                    Plugin.Instance.StartCoroutine(BonusDamage(position, radius, extra, __instance.enemy));
+                    Net.Runner.StartCoroutine(BonusDamage(position, radius, extra, __instance.enemy));
                 }
                 Plugin.Verbose($"バンガー: 爆発(半径 {radius:0.0}m)に {extra} ダメージを上乗せします");
             }

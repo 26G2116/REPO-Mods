@@ -17,11 +17,9 @@ namespace MonsterTweaks
     {
         public const string PluginGuid = "shunm.MonsterTweaks";
         public const string PluginName = "MonsterTweaks";
-        public const string PluginVersion = "0.8.3";
+        public const string PluginVersion = "0.8.4";
 
         internal static ManualLogSource Log;
-        /// <summary>コルーチンを動かすため(プラグインのオブジェクトはシーンをまたいで残る)。</summary>
-        internal static Plugin Instance;
         internal static ConfigEntry<bool> VerboseLog;
 
         private Harmony _harmony;
@@ -29,7 +27,6 @@ namespace MonsterTweaks
         private void Awake()
         {
             Log = Logger;
-            Instance = this;
             VerboseLog = Config.Bind("0. 全体", "詳しいログ", false, "挙動を変えたときにログを出す(動作確認用)");
 
             Elsa.Bind(Config);
@@ -91,10 +88,8 @@ namespace MonsterTweaks
             }
         }
 
-        private void OnDestroy()
-        {
-            _harmony?.UnpatchSelf();
-        }
+        // OnDestroy でパッチを外さない: BepInEx の管理オブジェクトはシーン遷移で壊れることがあり、
+        // そのときに外すと MOD の変更が黙って全部効かなくなる。ゲームの終了時はパッチを外す必要もない
 
         internal static void Verbose(string message)
         {

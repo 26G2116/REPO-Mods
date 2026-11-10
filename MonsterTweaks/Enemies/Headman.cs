@@ -68,7 +68,8 @@ namespace MonsterTweaks
 
         private static void CheckLights(Enemy enemy)
         {
-            if (!enemy || !enemy.HasVision || !enemy.Vision || enemy.DisableChaseTimer > 0f)
+            // 本来の視界と同じく、視界が切られている間(EnemyVision.DisableTimer)は気づかない
+            if (!enemy || !enemy.HasVision || !enemy.Vision || enemy.DisableChaseTimer > 0f || enemy.Vision.DisableTimer > 0f)
             {
                 return;
             }
@@ -170,12 +171,16 @@ namespace MonsterTweaks
             {
                 return;
             }
+            // ほかの敵のプレハブを読み込まないように、まず名前で絞り込む。見つからなければ全部を調べる
+            for (int pass = 0; pass < 2 && _bangRef == null; pass++)
             foreach (var list in new[] { director.enemiesDifficulty1, director.enemiesDifficulty2, director.enemiesDifficulty3 })
             {
                 if (list == null) continue;
                 foreach (var setup in list)
                 {
                     if (!setup || setup.spawnObjects == null) continue;
+                    if (pass == 0 && !setup.spawnObjects.Exists(o => o != null && o.ResourcePath != null
+                        && o.ResourcePath.IndexOf("bang", System.StringComparison.OrdinalIgnoreCase) >= 0)) continue;
                     PrefabRef bang = null, bangDirector = null;
                     foreach (var spawn in setup.spawnObjects)
                     {
@@ -265,6 +270,25 @@ namespace MonsterTweaks
                 {
                     __instance.DespawnedTimer = Mathf.Max(__instance.DespawnedTimer, 99999f);
                 }
+            }
+        }
+
+        /// <summary>
+        /// 一度きりのバンガーの再出現を確実に止める(待ち時間を大きくするだけだと、全抽出のあとに
+        /// ゲームが 30 秒を超える待ち時間を 0 に戻すので、実行順しだいで出てきてしまう)。
+        /// </summary>
+        [HarmonyPatch(typeof(EnemyParent), nameof(EnemyParent.Spawn))]
+        private static class ParentSpawnPatch
+        {
+            private static bool Prefix(EnemyParent __instance)
+            {
+                if (Summoned.Count == 0 || !Summoned.Contains(__instance) || Pending.ContainsKey(__instance)
+                    || !SummonOnce.Value || !Util.IsAuthority)
+                {
+                    return true;
+                }
+                __instance.DespawnedTimer = 99999f;
+                return false;
             }
         }
 

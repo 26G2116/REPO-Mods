@@ -126,5 +126,49 @@ namespace MonsterTweaks
                 return false;
             }
         }
+
+        // ---------------- 延長した叫びの見た目(MOD を入れた人の PC) ----------------
+
+        private class YellMemo
+        {
+            internal float Start = -1f;
+        }
+
+        private static readonly ConditionalWeakTable<EnemyBowtieAnim, YellMemo> Yells = new ConditionalWeakTable<EnemyBowtieAnim, YellMemo>();
+
+        /// <summary>
+        /// 風の粒子が一定時間で止まる作りだと、延長した叫びの途中で見た目だけ途切れるので、叫んでいる間は出し続ける
+        /// (叫び始めは本来のアニメのイベントで出るので、1 秒たってから止まっていたら出し直す。ずっと出る作りなら何もしない)。
+        /// </summary>
+        [HarmonyPatch(typeof(EnemyBowtieAnim), nameof(EnemyBowtieAnim.Update))]
+        private static class AnimPatch
+        {
+            private static void Postfix(EnemyBowtieAnim __instance)
+            {
+                var memo = Yells.GetOrCreateValue(__instance);
+                if (!Enabled.Value || !__instance.controller || __instance.controller.currentState != EnemyBowtie.State.Yell)
+                {
+                    memo.Start = -1f;
+                    return;
+                }
+                if (memo.Start < 0f)
+                {
+                    memo.Start = Time.time;
+                    return;
+                }
+                if (Time.time - memo.Start < 1f)
+                {
+                    return;
+                }
+                if (__instance.particleYell && !__instance.particleYell.isPlaying)
+                {
+                    __instance.particleYell.Play();
+                }
+                if (__instance.particleYellSmall && !__instance.particleYellSmall.isPlaying)
+                {
+                    __instance.particleYellSmall.Play();
+                }
+            }
+        }
     }
 }

@@ -27,11 +27,18 @@ namespace MonsterTweaks
 
         private static readonly Dictionary<byte, Action<object[]>> Handlers = new Dictionary<byte, Action<object[]>>();
 
+        /// <summary>
+        /// コルーチンを動かすためのオブジェクト(シーンをまたいで残る専用のもの。
+        /// BepInEx の管理オブジェクトはシーン遷移で壊れることがあるので、プラグイン本体では動かさない)。
+        /// </summary>
+        internal static Net Runner { get; private set; }
+
         internal static void Init()
         {
             var holder = new GameObject("MonsterTweaks Net");
+            holder.hideFlags = HideFlags.HideAndDontSave;
             DontDestroyOnLoad(holder);
-            holder.AddComponent<Net>();
+            Runner = holder.AddComponent<Net>();
             PhotonNetwork.NetworkingClient.EventReceived += OnEvent;
         }
 
@@ -52,7 +59,10 @@ namespace MonsterTweaks
                 kind == KindHeadPose ? SendOptions.SendUnreliable : SendOptions.SendReliable);
         }
 
-        /// <summary>部屋の全員が MonsterTweaks を入れているか(シングルプレイなら true)。</summary>
+        /// <summary>
+        /// 部屋の全員が同じ版の MonsterTweaks を入れているか(シングルプレイなら true)。
+        /// 版が違うと通信の中身が合わないことがあるので、違う版は「入れていない」と同じに扱う。
+        /// </summary>
         internal static bool EveryoneHasMod()
         {
             if (!SemiFunc.IsMultiplayer())
@@ -61,7 +71,8 @@ namespace MonsterTweaks
             }
             foreach (var player in PhotonNetwork.PlayerList)
             {
-                if (player.CustomProperties == null || !player.CustomProperties.ContainsKey(PresenceKey))
+                if (player.CustomProperties == null || !player.CustomProperties.TryGetValue(PresenceKey, out var version)
+                    || !(version is string text) || text != Plugin.PluginVersion)
                 {
                     return false;
                 }
