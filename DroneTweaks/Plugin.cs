@@ -10,6 +10,7 @@ namespace DroneTweaks
     /// ドローン・オーブを変える MOD。
     /// - 削除されたドローン・オーブ(データはゲームに残っている)を店に並べる。アイテムごとに ON / OFF
     /// - ヒーラードローンで倒れた人を復活させる・回復の電池効率を変える
+    /// - 不滅オーブの範囲内のプレイヤーを無敵にする・電池の持ちを変える
     /// 店の品ぞろえ・ドローンの狙い・電池・復活はホストが計算しているので、基本はホストだけ導入すれば全員に効く。
     /// </summary>
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -17,7 +18,7 @@ namespace DroneTweaks
     {
         public const string PluginGuid = "shunm.DroneTweaks";
         public const string PluginName = "DroneTweaks";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.2.0";
 
         internal static ManualLogSource Log;
         internal static ConfigEntry<bool> VerboseLog;
@@ -31,6 +32,7 @@ namespace DroneTweaks
 
             ShopItems.Bind(Config);
             HealDrone.Bind(Config);
+            IndestructibleOrb.Bind(Config);
 
             _harmony = new Harmony(PluginGuid);
             try

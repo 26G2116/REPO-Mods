@@ -34,7 +34,7 @@ namespace DroneTweaks
             Add(cfg, "Item Drone Heal", "ヒーラードローン", true);
             Add(cfg, "Item Orb Feather", "フェザーオーブ", true);
             Add(cfg, "Item Orb Heal", "ヒーラーオーブ", true);
-            Add(cfg, "Item Orb Indestructible", "破壊不能オーブ", true);
+            Add(cfg, "Item Orb Indestructible", "不滅オーブ", true);
             Add(cfg, "Item Orb Magnet", "マグネットオーブ", true);
             Add(cfg, "Item Orb Torque", "ロールオーブ", true);
             Add(cfg, "Item Drone Torque", "ロールドローン", false);
