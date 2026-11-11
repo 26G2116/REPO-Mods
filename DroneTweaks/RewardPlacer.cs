@@ -226,6 +226,42 @@ namespace DroneTweaks
             order.Sort((a, b) => Footprint(b).CompareTo(Footprint(a)));
 
             float cursorX = -usableX / 2f, cursorZ = -usableZ / 2f, rowDepth = 0f;
+
+            // カート武器(C.A.R.T. レーザー / キャノン)は、カートの中に置かれていると起動する(差し込み口はない)。
+            // 1 台だけ、カートの片側の端(幅の真ん中)に置き、残りの場所にほかのアイテムを並べる。
+            // 箱より少し大きくても、はみ出しが少ない向きで中に置く
+            var weapon = order.Find(i => i.prefab.Prefab.GetComponent<ItemCartCannonMain>());
+            if (weapon)
+            {
+                order.Remove(weapon);
+                var local = LocalBounds(weapon.prefab.Prefab);
+                int bestTurn = 0;
+                float bestOver = float.PositiveInfinity;
+                for (int turn = 0; turn < 2; turn++)
+                {
+                    var fp = RotatedSize(local.size, turn == 1);
+                    float over = Mathf.Max(0f, fp.x - usableX) + Mathf.Max(0f, fp.z - usableZ);
+                    if (over < bestOver - 0.001f)
+                    {
+                        bestOver = over;
+                        bestTurn = turn;
+                    }
+                }
+                var footprint = RotatedSize(local.size, bestTurn == 1);
+                float zCenter = footprint.z >= usableZ ? 0f : -usableZ / 2f + footprint.z / 2f;
+                var rotation = boxRotation * Quaternion.Euler(0f, bestTurn * 90f, 0f);
+                var slotCenter = inCart.position + boxRotation * new Vector3(0f, 0f, zCenter);
+                float floorY = CartFloorY(cart, slotCenter, size.y) + 0.05f;
+                var offset = rotation * local.center;
+                slots.Add(new Slot
+                {
+                    Item = weapon,
+                    Position = new Vector3(slotCenter.x - offset.x, floorY - local.min.y, slotCenter.z - offset.z),
+                    Rotation = rotation,
+                });
+                // ほかのアイテムは、武器の次の列から並べる
+                cursorZ = -usableZ / 2f + footprint.z + Gap;
+            }
             foreach (var item in order)
             {
                 var local = LocalBounds(item.prefab.Prefab);
