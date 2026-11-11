@@ -30,7 +30,7 @@ namespace DroneTweaks
             Enabled = cfg.Bind(Section, "有効", true, "範囲内の貴重品の価値を回復する効果に変える。電池の持ちも下の設定に変える");
             RepairPercent = cfg.Bind(Section, "1 秒ごとに回復する価値(元の額の%)", 1f,
                 new ConfigDescription("範囲内の貴重品の価値を、1 秒ごとに元の額のこの割合ずつ戻す(元の額まで)", new AcceptableValueRange<float>(0.1f, 100f)));
-            BatterySeconds = cfg.Bind(Section, "電池満タンで使える時間(秒)", 200f,
+            BatterySeconds = cfg.Bind(Section, "電池満タンで使える時間(秒)", 120f,
                 new ConfigDescription("起動している間、電池がこの秒数で 100% から 0% になる", new AcceptableValueRange<float>(5f, 1200f)));
             KeepOriginal = cfg.Bind(Section, "元の効果(軽くする)も残す", false, "ON にすると、価値の回復に加えて元の効果(範囲内の物とプレイヤーを軽くする)も出す");
         }

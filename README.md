@@ -9,7 +9,7 @@
 | MOD | 内容 | 説明書 |
 |---|---|---|
 | **MonsterTweaks** | モンスター 27 体の個別の強化と、全モンスター共通の「スタン無効」「移動速度倍率」。**ホストだけ導入すれば全員に効く** | [MonsterTweaks/Package/README.md](MonsterTweaks/Package/README.md) |
-| **DroneTweaks** | 削除されたドローン・オーブを店に戻す(アイテムごとに ON/OFF)。ヒーラードローンで倒れた人を復活できる。不滅オーブで範囲内のプレイヤーが無敵に、フェザーオーブで貴重品の価値が回復する。**ホストだけ導入すれば全員に効く** | [DroneTweaks/Package/README.md](DroneTweaks/Package/README.md) |
+| **DroneTweaks** | 削除されたドローン・オーブを店に戻す(アイテムごとに ON/OFF)。ヒーラードローンで倒れた人を復活できる。不滅オーブで範囲内のプレイヤーが無敵に、フェザーオーブで貴重品の価値が回復し、マグネットオーブで貴重品をアイテムに変えられる。**ホストだけ導入すれば全員に効く** | [DroneTweaks/Package/README.md](DroneTweaks/Package/README.md) |
 | **LoadProgress** | マルチプレイのロード中に、全員のロードの進み具合を 10 段階で表示する | [LoadProgress/Package/README.md](LoadProgress/Package/README.md) |
 | Translation | ほかの作者の MOD の画面の英語を日本語にする翻訳表(XUnity.AutoTranslator 用) | [Translation/README.md](Translation/README.md) |
 
@@ -46,7 +46,7 @@
 
 ### フォルダ構成
 - `MonsterTweaks/` … モンスターを強化する MOD(`Enemies/` に敵ごとの処理。開発の記録: `Docs/monster_tweaks.md`)
-- `DroneTweaks/` … ドローン・オーブを変える MOD(削除アイテムの復活、ヒーラードローンの復活機能、不滅オーブの無敵化、フェザーオーブの価値回復)
+- `DroneTweaks/` … ドローン・オーブを変える MOD(削除アイテムの復活、ヒーラードローンの復活機能、不滅オーブの無敵化、フェザーオーブの価値回復、マグネットオーブのアイテム変換)
 - `LoadProgress/` … ロードの進み具合を表示する MOD(仕組み: `Docs/loading_flow.md`)
 - `RepoModTemplate/` … 新しい MOD を作るときのひな形(起動ログ・設定・Harmony パッチのサンプル)
 - `Translation/` … 日本語化の翻訳表

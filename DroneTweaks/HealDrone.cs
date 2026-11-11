@@ -35,7 +35,7 @@ namespace DroneTweaks
         internal static void Bind(ConfigFile cfg)
         {
             Enabled = cfg.Bind(Section, "有効", true, "ヒーラードローンの変更(復活・回復の電池効率)を使う");
-            HealPerBattery = cfg.Bind(Section, "電池満タンで回復できる体力", 300,
+            HealPerBattery = cfg.Bind(Section, "電池満タンで回復できる体力", 250,
                 new ConfigDescription("回復した分だけ電池が減る。電池 100% でこの量まで回復できる", new AcceptableValueRange<int>(10, 3000)));
             Revive = cfg.Bind(Section, "倒れた人を復活させる", true, "近くに倒れた人の頭があれば、そちらを優先してくっつき、復活させる");
             ReviveCost = cfg.Bind(Section, "復活に必要な電池(%)", 20f,
