@@ -21,7 +21,7 @@ namespace DroneTweaks
     {
         public const string PluginGuid = "shunm.DroneTweaks";
         public const string PluginName = "DroneTweaks";
-        public const string PluginVersion = "0.5.0";
+        public const string PluginVersion = "0.5.1";
 
         internal static ManualLogSource Log;
         internal static ConfigEntry<bool> VerboseLog;

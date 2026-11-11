@@ -44,8 +44,8 @@ namespace DroneTweaks
                 new ConfigDescription("頭にくっついてから復活するまでの時間(電池が足りていれば)", new AcceptableValueRange<float>(0.5f, 30f)));
             ReviveHealth = cfg.Bind(Section, "復活後の体力", 50,
                 new ConfigDescription("復活した直後の体力(デフィブロは 50)", new AcceptableValueRange<int>(1, 200)));
-            HeadRange = cfg.Bind(Section, "頭を探す範囲(m)", 1.5f,
-                new ConfigDescription("ドローンからこの距離以内にある倒れた人の頭を狙う(生きている人を狙う範囲は 1m)", new AcceptableValueRange<float>(0.5f, 5f)));
+            HeadRange = cfg.Bind(Section, "頭を探す範囲(m)", 2.5f,
+                new ConfigDescription("ドローンからこの距離以内にある倒れた人の頭を狙う(壁越しは狙わない。生きている人を狙う範囲は 1m)", new AcceptableValueRange<float>(0.5f, 5f)));
         }
 
         private class Memo
@@ -120,8 +120,10 @@ namespace DroneTweaks
                 {
                     continue;
                 }
-                float distance = Vector3.Distance(position, head.physGrabObject.centerPoint);
-                if (distance <= bestDistance)
+                Vector3 center = head.physGrabObject.centerPoint;
+                float distance = Vector3.Distance(position, center);
+                // 壁越しには狙わない(SphereCheck と同じく Default の当たり判定で見る)
+                if (distance <= bestDistance && !Physics.Linecast(position, center, LayerMask.GetMask("Default"), QueryTriggerInteraction.Ignore))
                 {
                     bestDistance = distance;
                     best = head;
@@ -154,6 +156,8 @@ namespace DroneTweaks
                     return true;
                 }
                 // 元はここでドローンを OFF にする。代わりに狙いを消すと、元の処理がビームを外して「探す」状態に戻す
+                // (「狙いがあったのにビームが出ていない」と OFF にされるので、狙いがあった印も消す)
+                __instance.hadTarget = false;
                 __instance.playerAvatarTarget = null;
                 __instance.playerTumbleTarget = null;
                 __instance.magnetTarget = null;
@@ -263,6 +267,8 @@ namespace DroneTweaks
 
         private static void Release(ItemDrone drone)
         {
+            // ItemDrone.Update は「狙いがあったのにビームが出ていない」と OFF にするので、先に印を消す
+            drone.hadTarget = false;
             drone.DeactivateMagnet();
             drone.magnetTarget = null;
             drone.StateSet(ItemDrone.State.Searching);
