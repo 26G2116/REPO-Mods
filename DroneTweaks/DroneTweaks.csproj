@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>DroneTweaks</AssemblyName>
     <RootNamespace>DroneTweaks</RootNamespace>
-    <Version>0.2.1</Version>
+    <Version>0.3.0</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <DebugType>portable</DebugType>
@@ -43,7 +43,7 @@
   <PropertyGroup>
     <TsAuthor>shunm</TsAuthor>
     <TsName>$(AssemblyName)</TsName>
-    <TsDescription>Brings removed drones and orbs back to the shop (per-item toggle) and lets the Healer Drone revive dead players and the Indestructible Orb protect players.</TsDescription>
+    <TsDescription>Brings removed drones and orbs back to the shop (per-item toggle) and lets the Healer Drone revive dead players the Indestructible Orb protect players, and the Feather Orb repair valuables.</TsDescription>
     <TsDependencies>"BepInEx-BepInExPack-5.4.2305"</TsDependencies>
     <TsStageDir>$(MSBuildProjectDirectory)\obj\package</TsStageDir>
     <TsDistDir>$(MSBuildProjectDirectory)\..\dist</TsDistDir>
