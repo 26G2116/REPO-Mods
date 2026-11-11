@@ -11,9 +11,10 @@ namespace DroneTweaks
     /// <summary>
     /// マグネットオーブ(削除されたアイテム)に「貴重品をアイテムに変える」能力を足す。
     ///
-    /// - 起動したマグネットオーブを置いたまま(だれも持っていない)、範囲内に貴重品が 5 個以上ある状態が
-    ///   一定時間続くと発動する(元の効果「物を引き寄せて一緒に運ぶ」で貴重品を集めてから置く想定)
+    /// - 起動したマグネットオーブの範囲内に貴重品が 5 個以上ある状態が一定時間(初期値 2 秒)続くと発動する
+    ///   (持っていても置いていてもよい。設定で「置いているときだけ」にもできる)
     /// - 発動すると、範囲内の貴重品とオーブが壊れ、貴重品の合計金額に応じたアイテムが出る
+    ///   (オーブの近くの空いている床に重ならないように出し、カートがあればほかのアイテムはカートの中に並べる)
     /// - 1 レベルに使える回数は全オーブ合計で決まっている(初期値 1 回)
     /// - オーブは店の購入記録から消さずに壊すだけなので、次のレベルでまたトラックに出る
     /// - 出たアイテムは購入記録に入らないので、そのレベル限り(次のレベルのトラックには出ない)
@@ -38,10 +39,10 @@ namespace DroneTweaks
                 new ConfigDescription("この回数だけ発動できる。レベルが変わると戻る", new AcceptableValueRange<int>(1, 10)));
             MinValuables = cfg.Bind(Section, "必要な貴重品の数", 5,
                 new ConfigDescription("範囲内にこの数以上の貴重品があると発動の準備が始まる", new AcceptableValueRange<int>(1, 30)));
-            ChargeTime = cfg.Bind(Section, "発動までの時間(秒)", 3f,
+            ChargeTime = cfg.Bind(Section, "発動までの時間(秒)", 2f,
                 new ConfigDescription("条件を満たした状態がこの秒数続くと発動する", new AcceptableValueRange<float>(0f, 30f)));
-            OnlyWhenPlaced = cfg.Bind(Section, "置いているときだけ発動する", true,
-                "ON: だれもオーブを持っていないときだけ発動する(貴重品を運んでいる途中で発動しないように)");
+            OnlyWhenPlaced = cfg.Bind(Section, "置いているときだけ発動する", false,
+                "ON: だれもオーブを持っていないときだけ発動する(オーブで貴重品を運ぶ途中で発動しないようにしたいとき)");
         }
 
         // ---- 報酬の表 ----
@@ -202,54 +203,65 @@ namespace DroneTweaks
             Runner.Instance.StartCoroutine(SpawnRewards(center, items));
         }
 
-        private static IEnumerator SpawnRewards(Vector3 center, string[] items)
+        private static IEnumerator SpawnRewards(Vector3 origin, string[] names)
         {
             int generation = levelGeneration;
-            // 壊れた貴重品が消えるのを少し待ってから出す(重なって弾け飛ばないように)
+            // 壊れた貴重品とオーブが消えるのを少し待ってから、空いている場所を探す
             yield return new WaitForSeconds(0.4f);
             if (!SameLevel(generation))
             {
                 yield break;
             }
 
-            bool hasCart = false;
-            var rest = new List<Item>();
-            foreach (var name in items)
+            Item cartItem = null;
+            var others = new List<Item>();
+            foreach (var name in names)
             {
-                if (!StatsManager.instance || !StatsManager.instance.itemDictionary.TryGetValue(name, out var item) || item == null)
+                if (!StatsManager.instance.itemDictionary.TryGetValue(name, out var item) || item == null || !item.prefab.Prefab)
                 {
                     Plugin.Log.LogWarning($"マグネットオーブ: {name} がアイテム一覧にないので出せませんでした");
                     continue;
                 }
-                if (!hasCart && item.itemType == SemiFunc.itemType.cart)
+                // 中に物を入れられるカート(最初の 1 台)に、ほかのアイテムを入れる
+                if (!cartItem && item.prefab.Prefab.GetComponent<PhysGrabCart>())
                 {
-                    // カートは真ん中に出し、ほかのアイテムはその上から落とす(カートの中に入る)
-                    hasCart = true;
-                    Spawn(item, center + Vector3.up * 0.3f);
+                    cartItem = item;
                     continue;
                 }
-                rest.Add(item);
-            }
-            if (rest.Count == 0)
-            {
-                yield break;
-            }
-            if (hasCart)
-            {
-                yield return new WaitForSeconds(0.5f);
-            }
-            if (!SameLevel(generation))
-            {
-                yield break;
+                others.Add(item);
             }
 
-            float height = hasCart ? 1.6f : 0.6f;
-            float radius = rest.Count > 1 ? 0.35f : 0f;
-            for (int i = 0; i < rest.Count; i++)
+            var planned = new List<Bounds>();
+            if (cartItem)
             {
-                float angle = i * Mathf.PI * 2f / rest.Count;
-                var offset = new Vector3(Mathf.Cos(angle) * radius, height, Mathf.Sin(angle) * radius);
-                Spawn(rest[i], center + offset);
+                var cart = Spawn(cartItem, origin, planned);
+                // カートが床に落ち着くのを待ってから、中の位置を測る
+                yield return new WaitForSeconds(0.6f);
+                if (!SameLevel(generation))
+                {
+                    yield break;
+                }
+                var cartComponent = cart ? cart.GetComponent<PhysGrabCart>() : null;
+                if (cartComponent)
+                {
+                    planned.Add(WorldBounds(cart));
+                }
+                var remaining = new List<Item>();
+                foreach (var slot in RewardPlacer.PackInCart(cartComponent, others, remaining))
+                {
+                    SpawnAt(slot.Item, slot.Position, slot.Rotation);
+                    yield return new WaitForSeconds(0.05f);
+                    if (!SameLevel(generation))
+                    {
+                        yield break;
+                    }
+                }
+                others = remaining;
+            }
+
+            foreach (var item in others)
+            {
+                Spawn(item, origin, planned);
                 yield return new WaitForSeconds(0.1f);
                 if (!SameLevel(generation))
                 {
@@ -258,27 +270,51 @@ namespace DroneTweaks
             }
         }
 
+        private static Bounds WorldBounds(GameObject go)
+        {
+            var bounds = new Bounds(go.transform.position, Vector3.zero);
+            foreach (var col in go.GetComponentsInChildren<Collider>())
+            {
+                if (!col.isTrigger)
+                {
+                    bounds.Encapsulate(col.bounds);
+                }
+            }
+            return bounds;
+        }
+
+        /// <summary>オーブの近くの空いている床に出す。</summary>
+        private static GameObject Spawn(Item item, Vector3 origin, List<Bounds> planned)
+        {
+            if (!RewardPlacer.FindFloorSpot(item.prefab.Prefab, origin, planned, out var position, out var rotation))
+            {
+                Plugin.Log.LogWarning($"マグネットオーブ: {item.name} を置ける場所が見つからなかったので、オーブの位置に出します");
+            }
+            return SpawnAt(item, position, rotation);
+        }
+
         private static bool SameLevel(int generation)
         {
             return generation == levelGeneration && SemiFunc.RunIsLevel() && StatsManager.instance;
         }
 
-        private static void Spawn(Item item, Vector3 position)
+        private static GameObject SpawnAt(Item item, Vector3 position, Quaternion rotation)
         {
             GameObject spawned;
             if (SemiFunc.IsMultiplayer())
             {
-                spawned = PhotonNetwork.InstantiateRoomObject(item.prefab.ResourcePath, position, Quaternion.identity, 0, null);
+                spawned = PhotonNetwork.InstantiateRoomObject(item.prefab.ResourcePath, position, rotation, 0, null);
             }
             else
             {
-                spawned = Object.Instantiate(item.prefab.Prefab, position, Quaternion.identity);
+                spawned = Object.Instantiate(item.prefab.Prefab, position, rotation);
             }
             var attributes = spawned ? spawned.GetComponent<ItemAttributes>() : null;
             if (attributes)
             {
                 Rewards.Add(attributes);
             }
+            return spawned;
         }
 
         private static bool IsReward(string instanceName)
