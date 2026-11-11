@@ -53,6 +53,8 @@ namespace DroneTweaks
             internal ItemDroneHeal Heal;
             internal PlayerDeathHead Head;
             internal float Progress;
+            internal float SettleTimer; // 復活の前に頭を床の上で止めている時間(0 = まだ止めていない)
+            internal Vector3 SettlePosition;
             internal PlayerAvatar HealTarget;
             internal int LastHealth;
         }
@@ -231,12 +233,14 @@ namespace DroneTweaks
             {
                 memo.Head = null;
                 memo.Progress = 0f;
+                memo.SettleTimer = 0f;
                 return;
             }
             if (memo.Head != head)
             {
                 memo.Head = head;
                 memo.Progress = 0f;
+                memo.SettleTimer = 0f;
             }
 
             float cost = ReviveCost.Value;
@@ -250,6 +254,10 @@ namespace DroneTweaks
             {
                 return;
             }
+            if (!Settle(head, memo))
+            {
+                return;
+            }
 
             var player = head.playerAvatar;
             player.Revive(false);
@@ -260,9 +268,53 @@ namespace DroneTweaks
             }
             memo.Head = null;
             memo.Progress = 0f;
+            memo.SettleTimer = 0f;
             // 頭は復活と同時に遠くへ移されるので、すぐビームを外して次の相手を探させる
             Release(drone);
             Plugin.Verbose($"ヒーラードローン: {player.playerName} を復活させました(電池 {cost:0}% 使用、残り {battery.batteryLife:0}%)");
+        }
+
+        private const float SettleTime = 0.5f;
+        private const float HeadAboveFloor = 0.4f;
+
+        /// <summary>
+        /// 復活の前に、頭を床の少し上で止める。止め終わったら true。
+        /// 復活では「頭の中心から 0.25m 下」に体が出る(PlayerAvatar.ReviveRPC)。これは各 PC が自分の画面の頭の位置で計算するので、
+        /// 頭が床にめり込んでいたり転がっていたりすると、体が床の下に出て落ちてしまう
+        /// (デフィブロは頭が 2.5 秒止まるのを待ってから復活させている)。
+        /// そこでホストが頭を床の上へ移して止め、全員の画面の位置がそろうのを少し待ってから復活させる。
+        /// </summary>
+        private static bool Settle(PlayerDeathHead head, Memo memo)
+        {
+            var obj = head.physGrabObject;
+            if (memo.SettleTimer <= 0f)
+            {
+                memo.SettlePosition = obj.transform.position;
+                // 誰かが持っている頭は、持っている位置で復活させる(本来どおり)
+                if (obj.playerGrabbing.Count == 0)
+                {
+                    Vector3 center = obj.centerPoint;
+                    var mask = LayerMask.GetMask("Default");
+                    if (Physics.Raycast(center + Vector3.up * 0.5f, Vector3.down, out var hit, 2.5f, mask, QueryTriggerInteraction.Ignore)
+                        && center.y < hit.point.y + HeadAboveFloor)
+                    {
+                        // 中心が床から HeadAboveFloor の高さになるよう、頭の位置(中心とのずれ込み)ごと持ち上げる
+                        memo.SettlePosition += Vector3.up * (hit.point.y + HeadAboveFloor - center.y);
+                    }
+                }
+            }
+            memo.SettleTimer += Time.deltaTime;
+            if (obj.playerGrabbing.Count == 0)
+            {
+                obj.OverrideZeroGravity(0.2f);
+                obj.Teleport(memo.SettlePosition, obj.transform.rotation);
+                if (obj.rb && !obj.rb.isKinematic)
+                {
+                    obj.rb.linearVelocity = Vector3.zero;
+                    obj.rb.angularVelocity = Vector3.zero;
+                }
+            }
+            return memo.SettleTimer >= SettleTime;
         }
 
         private static void Release(ItemDrone drone)
