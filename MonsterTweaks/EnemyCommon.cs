@@ -9,7 +9,8 @@ namespace MonsterTweaks
 {
     /// <summary>
     /// すべてのモンスターに個別に設定できる共通の項目: スタン無効、移動速度倍率。ホストが判断・計算するので、ホストだけの導入で効く。
-    /// - スタン無効: スタンを受け付ける EnemyStateStunned.Set を無視する(ON にした時点でスタン中ならすぐ終わらせる)
+    /// - スタン無効: スタンを受け付ける EnemyStateStunned.Set を無視する(ON にした時点でスタン中ならすぐ終わらせる)。
+    ///   攻撃で押されはするが、体を傾ける回転を消してすぐ起こすので倒れない
     /// - 移動速度倍率: ナビメッシュの速さ(既定値と、状態ごとの一時的な上書き)と、体がそれを追いかける速さにかける。
     ///   ナビメッシュを使わずに動く動き(飛びかかり・空中移動など)には効かないことがある
     /// 設定は、すでに個別の変更があるモンスターはそのセクションに、それ以外は「モンスター: ○○」に置く。
@@ -110,7 +111,7 @@ namespace MonsterTweaks
                     Type = type,
                     Name = name,
                     SectionEnabled = SectionEnabledOf(type),
-                    StunImmune = cfg.Bind(sec, "スタン無効", stunImmune, $"{name}が銃や爆発、投げつけなどでスタンしない{note}(クラス名 {type.Name})"),
+                    StunImmune = cfg.Bind(sec, "スタン無効", stunImmune, $"{name}が銃や爆発、投げつけなどでスタンしない。押されはするが倒れない{note}(クラス名 {type.Name})"),
                     Speed = Util.Float(cfg, sec, "移動速度倍率(共通)", 1f, 0.2f, 5f,
                         $"{name}の移動の速さの倍率(1 でゲーム本来と同じ)。個別の速度設定がある場合はそれにさらにかかる。" +
                         "ナビメッシュを使わない動き(飛びかかり・空中移動など)には効かないことがある" + note),
@@ -181,6 +182,45 @@ namespace MonsterTweaks
                 if (__instance.stunTimer > 0.05f && Util.IsAuthority && IsStunImmune(__instance.enemy))
                 {
                     __instance.stunTimer = 0.05f;
+                }
+            }
+        }
+
+        /// <summary>傾いた体を起こす速さ(度/秒)。90 度倒れても 0.2 秒ほどで立ち直る。</summary>
+        private const float UprightSpeed = 450f;
+
+        /// <summary>
+        /// スタン無効の敵は、攻撃で押されても倒れない。押される力(移動)はそのまま残し、体を傾ける回転だけを毎フレーム消して、
+        /// 傾いていたら本来の向き(followTarget)へすぐ起こす。縦軸まわりの回転(向きを変える)は残す。
+        /// 回転の原因(銃・爆発・投げつけ・落下・ぶつかりなど)を個別に直さず、結果の傾きをまとめて直す。
+        /// 敵自身の技で体を傾けているとき(本来の向きへ戻す力を切っているとき)と、プレイヤーがつかんでいるときは何もしない。
+        /// </summary>
+        [HarmonyPatch(typeof(EnemyRigidbody), nameof(EnemyRigidbody.FixedUpdate))]
+        private static class UprightPatch
+        {
+            private static void Postfix(EnemyRigidbody __instance)
+            {
+                if (!Util.IsAuthority || !__instance.enemy || !__instance.rb || __instance.rb.isKinematic || !__instance.followTarget
+                    || !IsStunImmune(__instance.enemy))
+                {
+                    return;
+                }
+                if (__instance.enemy.FreezeTimer > 0f || __instance.enemy.CurrentState == EnemyState.Despawn
+                    || __instance.disableFollowRotationTimer > 0f || __instance.deactivateFollowTargetPhysicsTimer > 0f
+                    || (__instance.physGrabObject && __instance.physGrabObject.playerGrabbing.Count > 0))
+                {
+                    return;
+                }
+                var rb = __instance.rb;
+                Vector3 up = __instance.followTarget.up;
+                // 傾ける回転を消す(縦軸まわりだけ残す)
+                rb.angularVelocity = Vector3.Project(rb.angularVelocity, up);
+                Vector3 current = rb.rotation * Vector3.up;
+                float tilt = Vector3.Angle(current, up);
+                if (tilt > 1f)
+                {
+                    Quaternion upright = Quaternion.FromToRotation(current, up) * rb.rotation;
+                    rb.MoveRotation(Quaternion.RotateTowards(rb.rotation, upright, UprightSpeed * Time.fixedDeltaTime));
                 }
             }
         }
