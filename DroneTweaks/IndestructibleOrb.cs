@@ -10,8 +10,9 @@ namespace DroneTweaks
     ///
     /// - 範囲内の物(貴重品など)を壊れなくするのはゲーム本来の効果(ホストが計算)
     /// - 範囲内のプレイヤーを無敵にする:
-    ///   - ダメージ: プレイヤーのダメージは「ダメージを受ける人の PC」で計算されるので、その人の PC で止める
-    ///     (= MOD を入れている人だけ無効になる)
+    ///   - ダメージ: プレイヤーのダメージは「ダメージを受ける人の PC」で計算され、体力がホストへ送られてくる。
+    ///     ホストが減ったのを見たら、すぐ同じ量を回復で戻す(= MOD なしの人にも効く。ホスト自身も同じ方式)。
+    ///     一撃で体力が 0 になる攻撃は戻せない
     ///   - タンブル: 転ばせる要求・転んだあとの起き上がれない時間は、すべてホストに送られて処理されるので、
     ///     ホストで止める(= MOD なしの人も転ばなくなる)。自分で転ぶ操作はそのままできる
     /// - 電池の持ち: 電池満タンで設定の秒数だけ使える(電池はホストが計算)
@@ -83,6 +84,18 @@ namespace DroneTweaks
                     {
                         ProtectedUntil.Remove(key);
                     }
+                    var staleHealth = new List<PlayerHealth>();
+                    foreach (var key in HealStates.Keys)
+                    {
+                        if (!key)
+                        {
+                            staleHealth.Add(key);
+                        }
+                    }
+                    foreach (var key in staleHealth)
+                    {
+                        HealStates.Remove(key);
+                    }
                 }
 
                 Vector3 center = orb.transform.position;
@@ -125,14 +138,70 @@ namespace DroneTweaks
             return Vector3.Distance(point, a + ab * t);
         }
 
-        // ---- ダメージを止める(ダメージを受ける人の PC) ----
+        // ---- 減った体力をホストがすぐ回復で戻す(ホスト) ----
 
-        [HarmonyPatch(typeof(PlayerHealth), nameof(PlayerHealth.Hurt))]
-        private static class HurtPatch
+        // 体力の減少はダメージを受けた人の PC からホストへ送られてくるので、範囲を出た直後に届いた分も戻せるよう少し長めに見る
+        private const float HealBackGrace = 0.5f;
+
+        // 回復を送ってから相手の PC で回復して体力が送り返されるまでの間に、同じ分を二重に送らないための記録
+        private class HealState
         {
-            private static bool Prefix(PlayerHealth __instance, int damage)
+            internal int Expected;   // 戻したい体力
+            internal int LastSeen;   // 前のフレームに見た体力
+            internal int Pending;    // 送ったが、まだ反映が届いていない回復量
+            internal float PendingTime;
+        }
+
+        private static readonly Dictionary<PlayerHealth, HealState> HealStates = new Dictionary<PlayerHealth, HealState>();
+
+        [HarmonyPatch(typeof(PlayerHealth), nameof(PlayerHealth.Update))]
+        private static class HealBackPatch
+        {
+            private static void Postfix(PlayerHealth __instance)
             {
-                return damage <= 0 || !IsProtected(__instance.playerAvatar);
+                if (!SemiFunc.IsMasterClientOrSingleplayer() || __instance.isMenuAvatar)
+                {
+                    return;
+                }
+                var player = __instance.playerAvatar;
+                bool active = player && !player.isDisabled && !player.deadSet && Enabled.Value
+                    && ProtectedUntil.TryGetValue(player, out float until) && until + HealBackGrace > Time.time;
+                if (!active)
+                {
+                    HealStates.Remove(__instance);
+                    return;
+                }
+
+                int health = __instance.health;
+                if (!HealStates.TryGetValue(__instance, out var state))
+                {
+                    HealStates[__instance] = new HealState { Expected = health, LastSeen = health };
+                    return;
+                }
+                if (health > state.LastSeen)
+                {
+                    state.Pending = Mathf.Max(0, state.Pending - (health - state.LastSeen));
+                }
+                state.LastSeen = health;
+                if (health >= state.Expected)
+                {
+                    // ほかの方法で回復した分も含めて、今の体力を基準にする
+                    state.Expected = health;
+                    state.Pending = 0;
+                    return;
+                }
+                if (state.Pending > 0 && Time.time - state.PendingTime > 1.5f)
+                {
+                    state.Pending = 0; // 回復が届かなかった(上限に達していた等)ときは送り直す
+                }
+                int deficit = state.Expected - health - state.Pending;
+                if (deficit > 0)
+                {
+                    __instance.HealOther(deficit, false);
+                    state.Pending += deficit;
+                    state.PendingTime = Time.time;
+                    Plugin.Verbose($"不滅オーブ: {player.playerName} の減った体力 {deficit} を戻しました");
+                }
             }
         }
 

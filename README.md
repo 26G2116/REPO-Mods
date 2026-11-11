@@ -9,7 +9,7 @@
 | MOD | 内容 | 説明書 |
 |---|---|---|
 | **MonsterTweaks** | モンスター 27 体の個別の強化と、全モンスター共通の「スタン無効」「移動速度倍率」。**ホストだけ導入すれば全員に効く** | [MonsterTweaks/Package/README.md](MonsterTweaks/Package/README.md) |
-| **DroneTweaks** | 削除されたドローン・オーブを店に戻す(アイテムごとに ON/OFF)。ヒーラードローンで倒れた人を復活できる。不滅オーブで範囲内のプレイヤーが無敵になる。**基本はホストだけ導入すれば全員に効く**(不滅オーブのダメージ無効だけは各自の導入が必要) | [DroneTweaks/Package/README.md](DroneTweaks/Package/README.md) |
+| **DroneTweaks** | 削除されたドローン・オーブを店に戻す(アイテムごとに ON/OFF)。ヒーラードローンで倒れた人を復活できる。不滅オーブで範囲内のプレイヤーが無敵になる。**ホストだけ導入すれば全員に効く** | [DroneTweaks/Package/README.md](DroneTweaks/Package/README.md) |
 | **LoadProgress** | マルチプレイのロード中に、全員のロードの進み具合を 10 段階で表示する | [LoadProgress/Package/README.md](LoadProgress/Package/README.md) |
 | Translation | ほかの作者の MOD の画面の英語を日本語にする翻訳表(XUnity.AutoTranslator 用) | [Translation/README.md](Translation/README.md) |
 
