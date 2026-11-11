@@ -1,38 +1,63 @@
-# REPO_Mod
+# REPO-Mods
 
-R.E.P.O. 用 BepInEx 5 プラグインのテンプレート。
+[R.E.P.O.](https://store.steampowered.com/app/3241660/REPO/) 用の BepInEx 5 プラグイン(MOD)集です。
 
-## 構成
-- `RepoMod.sln` … Visual Studio で開くソリューション
-- `LoadProgress/` … マルチのロード進捗を 10 段階で表示する MOD(詳細: `Docs/loading_flow.md`)
-- `MonsterTweaks/` … モンスターの挙動を変える MOD(27 体の強化 + 全モンスター共通のスタン無効・速度)(詳細: `Docs/monster_tweaks.md`、`MonsterTweaks/Package/README.md`)
-- `Translation/` … 他の人の MOD を日本語にする翻訳表(XUnity.AutoTranslator 用、詳細: `Translation/README.md`)
-- `Tools/` … 逆コンパイルした MOD から英語の文を抜き出すスクリプト
-- `RepoModTemplate/Plugin.cs` … プラグイン本体(起動ログ、設定、Harmony 適用)
-- `RepoModTemplate/Patches/PlayerControllerPatch.cs` … Harmony パッチのサンプル
+> English: A collection of BepInEx 5 plugins for R.E.P.O. The main one is **MonsterTweaks**, which heavily buffs 27 monsters
+> (works when only the host installs it). Documentation is in Japanese. MIT licensed.
 
-## ビルドと確認
-1. 初回だけ: **Release** でビルドする → `dist\shunm-<MOD名>-<版>.zip` ができる。
-   Gale で「Repo MODs」プロファイルを選び、「ローカル MOD のインポート」でこの zip を取り込む
-   (これで Gale の MOD 一覧に表示され、スイッチで ON / OFF できる)
-2. 開発中は **Debug** でビルドする(Visual Studio または `dotnet build`)。
-   Gale が取り込んだ MOD フォルダの DLL が自動で上書きされる
-   - Gale で OFF にしているときはコピーしない(勝手に ON に戻らない)
-   - 取り込んでいないときは、警告が出るだけでコピーしない
-3. Gale で「Repo MODs」プロファイルを選んで起動する
-4. ログで確認する:
-   `%APPDATA%\com.kesomannen.gale\repo\profiles\Repo MODs\BepInEx\LogOutput.log`
-   - `RepoModTemplate 0.1.0 を読み込みました` … 読み込み成功
-   - `PlayerController.Start が呼ばれました` … パッチ成功
+## MOD の一覧
+| MOD | 内容 | 説明書 |
+|---|---|---|
+| **MonsterTweaks** | モンスター 27 体の個別の強化と、全モンスター共通の「スタン無効」「移動速度倍率」。**ホストだけ導入すれば全員に効く** | [MonsterTweaks/Package/README.md](MonsterTweaks/Package/README.md) |
+| **LoadProgress** | マルチプレイのロード中に、全員のロードの進み具合を 10 段階で表示する | [LoadProgress/Package/README.md](LoadProgress/Package/README.md) |
+| Translation | ほかの作者の MOD の画面の英語を日本語にする翻訳表(XUnity.AutoTranslator 用) | [Translation/README.md](Translation/README.md) |
 
-※ ゲームを起動したままだと DLL のコピーに失敗する。ビルド前にゲームを閉じる。
+### MonsterTweaks の主な強化
+- エルサ・APEX プレデター・ローブ・クリーンアップクルー・リーパーなど 27 体の行動を強化(敵ごとに ON / OFF・数値を設定できる)
+- できるだけゲーム本来の効果(卵の爆発、ロールの杖、無重力の杖、本物の敵の分身など)を使うので、MOD なしの参加者の画面でも自然に見える
+- 設定は REPOConfig を使えばゲーム中に変更でき、すぐ反映される
 
-## パスの変更
-`RepoModTemplate.csproj` の `GameDir`(ゲームのフォルダ)と `ProfileDir`(Gale プロファイル)を書き換える。
+**注意**: 強化はかなり強めです。ホストが導入すると、参加者は MOD を入れていなくても強化された敵と戦うことになります。
+知らない人と遊ぶ部屋で使うときは、事前に伝えてください。
 
-## 新しい MOD を作るとき
-フォルダをコピーして、名前を変える:
+## 導入方法(遊ぶ人向け)
+1. MOD マネージャー([Gale](https://github.com/Kesomannen/gale) または r2modman)で R.E.P.O. のプロファイルを作り、BepInEx を入れる
+2. MOD の zip を用意する(下の「ビルド」で作るか、Releases に置いてあればそれを使う)
+3. MOD マネージャーの「ローカル MOD のインポート」で zip を取り込む
+4. そのプロファイルでゲームを起動する
+
+- MonsterTweaks は基本的に**ホストだけ**が入れれば効きます(一部の演出は、MOD を入れた人の画面にだけ出ます)
+- 設定ファイルは `BepInEx\config\shunm.MonsterTweaks.cfg`(MOD マネージャーの設定画面からも編集できる)
+
+## ビルド(開発する人向け)
+必要なもの: .NET SDK(`dotnet build` が使えること)、R.E.P.O. 本体、BepInEx を入れた Gale のプロファイル。
+
+1. 各 `.csproj` の `GameDir`(ゲームのフォルダ)と `ProfileDir`(Gale のプロファイル)を自分の環境に合わせる
+   (`dotnet build -p:GameDir=...` のように指定してもよい)
+2. **Release** でビルドする → `dist\shunm-<MOD名>-<版>.zip` ができる。Gale の「ローカル MOD のインポート」で取り込む
+3. 開発中は **Debug** でビルドする。Gale が取り込んだ MOD フォルダの DLL が自動で上書きされる
+   - Gale で OFF にしているときや、まだ取り込んでいないときはコピーしない
+   - ゲームを起動したままだと DLL のコピーに失敗するので、ビルド前にゲームを閉じる
+4. ログ: `%APPDATA%\com.kesomannen.gale\repo\profiles\<プロファイル名>\BepInEx\LogOutput.log`
+
+ゲームの DLL(Assembly-CSharp など)はゲームのフォルダから参照するだけで、このリポジトリには含めていません。
+非公開のメンバーには BepInEx.AssemblyPublicizer でアクセスしています。
+
+### フォルダ構成
+- `MonsterTweaks/` … モンスターを強化する MOD(`Enemies/` に敵ごとの処理。開発の記録: `Docs/monster_tweaks.md`)
+- `LoadProgress/` … ロードの進み具合を表示する MOD(仕組み: `Docs/loading_flow.md`)
+- `RepoModTemplate/` … 新しい MOD を作るときのひな形(起動ログ・設定・Harmony パッチのサンプル)
+- `Translation/` … 日本語化の翻訳表
+- `Tools/` … MOD の設定項目や英語の文を抜き出す補助スクリプト
+
+### 新しい MOD を作るとき
+`RepoModTemplate` をコピーして、次の名前を変える。
 - `.csproj` のファイル名と `AssemblyName` / `RootNamespace`
 - `Plugin.cs` の `PluginGuid` / `PluginName` / namespace
 
-版を上げたら(`.csproj` の `Version`)、Release でビルドして Gale にもう一度インポートする。
+## ライセンス
+[MIT License](LICENSE) です。自由に使用・改変・再配布できます(著作権表示とライセンス文は残してください)。
+
+- R.E.P.O. は semiwork の作品です。この MOD 集は非公式のファンメイドで、semiwork とは関係ありません。
+  ゲームのファイル(DLL・画像・音・モデル)は含んでいません。
+- `Translation/` の翻訳表の原文(英語)は、それぞれの MOD の作者のものです。
