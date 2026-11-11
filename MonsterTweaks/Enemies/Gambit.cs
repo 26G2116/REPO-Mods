@@ -37,7 +37,13 @@ namespace MonsterTweaks
             internal Vector3 Destination;
             internal bool HasDestination;
             internal float Timer;
+            internal float LagTimer;
         }
+
+        /// <summary>捕まえた人が口の前の位置からこれ以上離れたら、追いつくまで歩くのを止める(m)。</summary>
+        private const float LagDistance = 1f;
+        /// <summary>離れたまま(地形に引っかかったまま)この秒数たったら、口の前へ引き戻す。</summary>
+        private const float SnapTime = 0.75f;
 
         private static readonly ConditionalWeakTable<EnemySpinny, Memo> Memos = new ConditionalWeakTable<EnemySpinny, Memo>();
 
@@ -57,6 +63,10 @@ namespace MonsterTweaks
                     return;
                 }
                 var memo = Memos.GetOrCreateValue(__instance);
+                if (KeepUp(__instance, memo))
+                {
+                    return;
+                }
                 Vector3 position = __instance.enemy.transform.position;
                 memo.Timer -= Time.deltaTime;
                 if (!memo.HasDestination || memo.Timer <= 0f || Vector3.Distance(position, memo.Destination) < 1.5f)
@@ -75,6 +85,51 @@ namespace MonsterTweaks
                     agent.OverrideAgent(WalkSpeed.Value, 10f, 0.25f);
                     agent.SetDestination(memo.Destination);
                 }
+            }
+
+            /// <summary>
+            /// 捕まえた人が遅れていたら歩くのを止める(true を返す)。地形に引っかかって離れたままなら、口の前へ引き戻す。
+            /// 歩くと本来の引き寄せ(物理の力)が追いつかず、段差や家具に引っかかった人がはぐれてしまうため。
+            /// </summary>
+            private static bool KeepUp(EnemySpinny spinny, Memo memo)
+            {
+                var tumble = spinny.playerTarget.tumble;
+                var lockPoint = spinny.playerLockPoint;
+                if (!tumble || !tumble.rb || !lockPoint)
+                {
+                    return false;
+                }
+                float distance = Vector3.Distance(tumble.rb.position, lockPoint.position);
+                if (distance <= LagDistance)
+                {
+                    memo.LagTimer = 0f;
+                    return false;
+                }
+                // 追いつくまでその場で待つ
+                spinny.enemy.NavMeshAgent.Stop(0.1f);
+                // ほかのプレイヤーがつかんで助けようとしているときは引き戻さない
+                if (tumble.physGrabObject && tumble.physGrabObject.grabbed)
+                {
+                    memo.LagTimer = 0f;
+                    return true;
+                }
+                memo.LagTimer += Time.deltaTime;
+                if (memo.LagTimer >= SnapTime && tumble.physGrabObject && LockPointClear(spinny, lockPoint.position))
+                {
+                    memo.LagTimer = 0f;
+                    tumble.physGrabObject.Teleport(lockPoint.position, lockPoint.rotation);
+                    tumble.rb.linearVelocity = Vector3.zero;
+                    tumble.rb.angularVelocity = Vector3.zero;
+                    Plugin.Verbose($"ギャンビット: 引っかかって {distance:0.0}m 離れた人を口の前へ引き戻しました");
+                }
+                return true;
+            }
+
+            /// <summary>口の前の位置が壁や物にめり込んでいないか(ギャンビットの中心から見通せるか)。めり込むなら引き戻さない。</summary>
+            private static bool LockPointClear(EnemySpinny spinny, Vector3 lockPosition)
+            {
+                Vector3 from = spinny.enemy.CenterTransform ? spinny.enemy.CenterTransform.position : spinny.transform.position + Vector3.up * 0.5f;
+                return !Physics.Linecast(from, lockPosition, LayerMask.GetMask("Default"), QueryTriggerInteraction.Ignore);
             }
         }
 

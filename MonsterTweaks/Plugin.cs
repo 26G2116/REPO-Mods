@@ -17,7 +17,7 @@ namespace MonsterTweaks
     {
         public const string PluginGuid = "shunm.MonsterTweaks";
         public const string PluginName = "MonsterTweaks";
-        public const string PluginVersion = "0.10.1";
+        public const string PluginVersion = "0.10.2";
 
         internal static ManualLogSource Log;
         internal static ConfigEntry<bool> VerboseLog;
