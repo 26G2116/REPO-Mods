@@ -182,11 +182,16 @@ namespace FloorRoles
             {
                 yield break;
             }
-            // モニターの最初の文章を打ち終わるまで待ってから書く
+            // 税務官がページを最後まで打ち終わってから書く(行と行の間に書くと、続きの行に押し上げられて
+            // 12 行の制限で上から消える)。90 秒たっても終わらなければ、打っていない瞬間に書く
             float waited = 0f;
-            while (generation == Phase.Generation && SemiFunc.RunIsLobby() && waited < 60f)
+            while (generation == Phase.Generation && SemiFunc.RunIsLobby())
             {
-                if (Net.TruckMessage(MonitorText()))
+                if ((Net.TruckPageFinished() || waited >= 90f) && Net.TruckMessage(MonitorText()))
+                {
+                    yield break;
+                }
+                if (waited >= 150f)
                 {
                     yield break;
                 }

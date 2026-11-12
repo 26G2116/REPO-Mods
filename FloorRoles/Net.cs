@@ -48,6 +48,26 @@ namespace FloorRoles
         }
 
         /// <summary>トラックのモニターに、税務官からのメッセージとして書く(打ち込み中の画面では出ない)。</summary>
+        /// <summary>
+        /// 税務官が今のページの文章を最後まで打ち終わったか(ホストで見る)。
+        /// 打っていない瞬間でも、行と行の間の待ち時間なら、まだ続きがある。
+        /// </summary>
+        internal static bool TruckPageFinished()
+        {
+            var screen = TruckScreenText.instance;
+            if (!screen || !screen.started || screen.isTyping || screen.pages == null)
+            {
+                return false;
+            }
+            int page = screen.currentPageIndex;
+            if (page < 0 || page >= screen.pages.Count)
+            {
+                return true;
+            }
+            var lines = screen.pages[page].textLines;
+            return lines == null || screen.currentLineIndex >= lines.Count;
+        }
+
         internal static bool TruckMessage(string text)
         {
             var screen = TruckScreenText.instance;
