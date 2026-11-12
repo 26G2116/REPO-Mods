@@ -24,7 +24,8 @@ namespace FloorRoles
     /// - トラックに入ったら、次のマップを先に抽選し、役職ごとの報酬(3 種類から 2 つ)を抽選してモニターに出す
     /// - 人数分のロールオーブを出す。トラックを出発したとき、ロールオーブを 1 つだけインベントリに入れている人は、
     ///   入れたスロット(1 運搬 / 2 戦闘 / 3 特殊)の役職になる。0 個・2 個以上なら役職なし
-    /// - 報酬はゲーム本来のアップグレードと同じ(全員の PC で同じ処理が動く)ので、MOD なしの参加者にも効く
+    /// - 報酬はゲーム本来のアップグレードと同じ(全員の PC で同じ処理が動く)ので、MOD なしの参加者にも効く。
+    ///   上げるのは出発の瞬間(ショップで使ったのと同じ扱い)で、次のマップの開始時に反映される
     /// - 出発(モニターのチャット)はホストだけができる
     /// 役職特性・マップごとの追加特性は、あとで足す(今は報酬だけ)。
     /// </summary>
@@ -81,11 +82,11 @@ namespace FloorRoles
         private static List<Stat>[] draws;
         private static readonly List<ItemAttributes> SpawnedOrbs = new List<ItemAttributes>();
 
-        // ---- 次のレベルで渡す報酬 ----
-        private static readonly Dictionary<string, Role> PendingRoles = new Dictionary<string, Role>();
-        private static List<Stat>[] pendingDraws;
-        private static int grantGeneration = -1;
-        private static bool grantScheduled;
+        // ---- 出発時に渡した報酬(次のレベルの開始時にしゃべらせる) ----
+        private static readonly Dictionary<string, Role> NextRoles = new Dictionary<string, Role>();
+        private static readonly Dictionary<string, string> Announcements = new Dictionary<string, string>();
+        private static int announceGeneration = -1;
+        private static bool announceScheduled;
 
         /// <summary>今のレベルでの役職(役職特性をあとで足すときに使う)。</summary>
         internal static readonly Dictionary<string, Role> CurrentRoles = new Dictionary<string, Role>();
@@ -125,10 +126,10 @@ namespace FloorRoles
                 lobbyGeneration = Phase.Generation;
                 Runner.Instance.StartCoroutine(LobbyStart(Phase.Generation));
             }
-            if (SemiFunc.RunIsLevel() && PendingRoles.Count > 0 && grantGeneration != Phase.Generation && !grantScheduled)
+            if (SemiFunc.RunIsLevel() && NextRoles.Count > 0 && announceGeneration != Phase.Generation && !announceScheduled)
             {
-                grantScheduled = true;
-                Runner.Instance.StartCoroutine(GrantRewards(Phase.Generation));
+                announceScheduled = true;
+                Runner.Instance.StartCoroutine(StartLevelRoles(Phase.Generation));
             }
         }
 
@@ -343,6 +344,7 @@ namespace FloorRoles
             if (Enabled.Value && SemiFunc.RunIsLobby() && completed && draws != null)
             {
                 DecideRoles();
+                GrantRewards();
             }
             else if (!SemiFunc.RunIsLobby())
             {
@@ -350,13 +352,13 @@ namespace FloorRoles
                 CurrentRoles.Clear();
             }
             CleanupOrbs();
-            grantScheduled = false;
+            announceScheduled = false;
         }
 
         private static void DecideRoles()
         {
-            PendingRoles.Clear();
-            pendingDraws = draws;
+            NextRoles.Clear();
+            Announcements.Clear();
             // インベントリに入っているロールオーブを、持ち主ごとにまとめる
             var spots = new Dictionary<PlayerAvatar, List<int>>();
             foreach (var equippable in Object.FindObjectsByType<ItemEquippable>(FindObjectsSortMode.None))
@@ -389,7 +391,7 @@ namespace FloorRoles
                 }
                 if (role != Role.None)
                 {
-                    PendingRoles[player.steamID] = role;
+                    NextRoles[player.steamID] = role;
                 }
                 Plugin.Verbose($"役職: {Net.Name(player)} = {(role == Role.None ? "なし" : RoleNames[(int)role])}(ロールオーブ {(list == null ? 0 : list.Count)} 個)");
             }
@@ -452,29 +454,18 @@ namespace FloorRoles
         }
 
         // ================================================================
-        // 次のレベルの開始時に報酬を渡す(ホスト)
+        // 報酬は出発した瞬間に渡す(ホスト)
         // ================================================================
 
-        private static IEnumerator GrantRewards(int generation)
+        /// <summary>
+        /// アップグレードは出発の瞬間(次のマップを読み込む前)に上げる。ショップでアップグレードを使ったのと同じ扱いになり、
+        /// 次のマップの開始時に、全員の PC がアップグレードの数を読み直して HP・スタミナ・スプリント速度などに反映する。
+        /// (マップが始まってから上げると、読み込みの遅い人の PC で、開始時の読み直しと二重に足されることがある)
+        /// </summary>
+        private static void GrantRewards()
         {
-            // 全員のアバターができてから
-            yield return new WaitForSeconds(2f);
-            if (generation != Phase.Generation || !SemiFunc.RunIsLevel())
+            foreach (var pair in NextRoles)
             {
-                grantScheduled = false;
-                yield break;
-            }
-            grantGeneration = generation;
-            CurrentRoles.Clear();
-            var granted = new List<KeyValuePair<PlayerAvatar, string>>();
-            foreach (var pair in PendingRoles)
-            {
-                var player = SemiFunc.PlayerAvatarGetFromSteamID(pair.Key);
-                if (!player)
-                {
-                    continue;
-                }
-                CurrentRoles[pair.Key] = pair.Value;
                 var labels = new List<string>();
                 foreach (var stat in ResolveStats(pair.Key, pair.Value))
                 {
@@ -492,24 +483,41 @@ namespace FloorRoles
                     labels.Add($"{stat.Label}+{amount}");
                 }
                 string line = $"{RoleNames[(int)pair.Value]}: " + (labels.Count > 0 ? string.Join("、", labels) : "報酬なし(上限)");
-                granted.Add(new KeyValuePair<PlayerAvatar, string>(player, line));
-                Plugin.Verbose($"報酬: {Net.Name(player)} {line}");
+                Announcements[pair.Key] = line;
+                Plugin.Verbose($"報酬: {pair.Key} {line}");
             }
-            PendingRoles.Clear();
-            pendingDraws = null;
-            grantScheduled = false;
+        }
 
-            // それぞれの人に、もらった報酬をしゃべらせる
-            foreach (var pair in granted)
+        /// <summary>次のレベルが始まったら、その人の役職を有効にし、もらった報酬をしゃべらせる。</summary>
+        private static IEnumerator StartLevelRoles(int generation)
+        {
+            // 全員のアバターができてから
+            yield return new WaitForSeconds(2f);
+            if (generation != Phase.Generation || !SemiFunc.RunIsLevel())
             {
-                Net.Speak(pair.Key, pair.Value);
+                announceScheduled = false;
+                yield break;
             }
+            announceGeneration = generation;
+            CurrentRoles.Clear();
+            foreach (var pair in NextRoles)
+            {
+                CurrentRoles[pair.Key] = pair.Value;
+                var player = SemiFunc.PlayerAvatarGetFromSteamID(pair.Key);
+                if (player && Announcements.TryGetValue(pair.Key, out var line))
+                {
+                    Net.Speak(player, line);
+                }
+            }
+            NextRoles.Clear();
+            Announcements.Clear();
+            announceScheduled = false;
         }
 
         /// <summary>抽選した報酬のうち、上限に達しているものは、同じ役職の残りに差し替える。</summary>
         private static List<Stat> ResolveStats(string steamID, Role role)
         {
-            var drawn = pendingDraws != null ? pendingDraws[(int)role] : new List<Stat>();
+            var drawn = draws != null ? draws[(int)role] : new List<Stat>();
             var result = new List<Stat>();
             var spare = RoleStats[(int)role].Where(s => !drawn.Contains(s)).ToList();
             foreach (var stat in drawn)
