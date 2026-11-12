@@ -435,12 +435,17 @@ namespace FloorRoles
             }
         }
 
+        /// <summary>
+        /// 精算の処理の中で商品が消されたら、それが「買った」こと(ゲームは買った商品だけを消す)。
+        /// 精算口から押し出された商品もリストからは外れるので、リストではなく「消されたか」で数える。
+        /// </summary>
+        private static bool buying;
+
         [HarmonyPatch(typeof(ExtractionPoint), nameof(ExtractionPoint.DestroyTheFirstPhysObjectsInShopList))]
         private static class BuyOnePatch
         {
-            private static void Prefix(out ItemAttributes __state)
+            private static void Prefix()
             {
-                __state = null;
                 if (!Net.IsHost || !On || !ShopManager.instance)
                 {
                     return;
@@ -453,44 +458,47 @@ namespace FloorRoles
                     list.RemoveAt(0);
                     Rejected(item, Buyer(item));
                 }
-                __state = list.Count > 0 ? list[0] : null;
+                buying = true;
             }
 
-            private static void Postfix(ItemAttributes __state)
+            private static void Finalizer()
             {
-                if (__state && ShopManager.instance && !ShopManager.instance.shoppingList.Contains(__state))
-                {
-                    Charge(__state);
-                }
+                buying = false;
             }
         }
 
         [HarmonyPatch(typeof(ExtractionPoint), nameof(ExtractionPoint.DestroyAllPhysObjectsInShoppingList))]
         private static class BuyAllPatch
         {
-            private static void Prefix(out List<ItemAttributes> __state)
+            private static void Prefix()
             {
-                __state = null;
                 if (!Net.IsHost || !On || !ShopManager.instance)
                 {
                     return;
                 }
                 FilterAffordable(ShopManager.instance.shoppingList);
-                __state = ShopManager.instance.shoppingList.Where(i => i).ToList();
+                buying = true;
             }
 
-            private static void Postfix(List<ItemAttributes> __state)
+            private static void Finalizer()
             {
-                if (__state == null || !ShopManager.instance)
+                buying = false;
+            }
+        }
+
+        [HarmonyPatch(typeof(PhysGrabObject), nameof(PhysGrabObject.DestroyPhysGrabObject))]
+        private static class DestroyPatch
+        {
+            private static void Prefix(PhysGrabObject __instance)
+            {
+                if (!buying || !Net.IsHost || !On)
                 {
                     return;
                 }
-                foreach (var item in __state)
+                var item = __instance.GetComponent<ItemAttributes>();
+                if (item)
                 {
-                    if (!ShopManager.instance.shoppingList.Contains(item))
-                    {
-                        Charge(item);
-                    }
+                    Charge(item);
                 }
             }
         }

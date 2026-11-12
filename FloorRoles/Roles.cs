@@ -81,6 +81,8 @@ namespace FloorRoles
         private static Level nextLevel;
         private static List<Stat>[] draws;
         private static readonly List<ItemAttributes> SpawnedOrbs = new List<ItemAttributes>();
+        /// <summary>ロールオーブを出す前からあった「購入したアイテム」の名前(片付けで消さない)。</summary>
+        private static readonly HashSet<string> ItemsBeforeOrbs = new HashSet<string>();
 
         // ---- 出発時に渡した報酬(次のレベルの開始時にしゃべらせる) ----
         private static readonly Dictionary<string, Role> NextRoles = new Dictionary<string, Role>();
@@ -312,6 +314,13 @@ namespace FloorRoles
             {
                 return;
             }
+            // 出したオーブは、購入済みのロールオーブ(トラックに出なかった分)の名前を借りることがある。
+            // その名前は片付けで消さないように、出す前の一覧を覚えておく
+            ItemsBeforeOrbs.Clear();
+            if (StatsManager.instance)
+            {
+                ItemsBeforeOrbs.UnionWith(StatsManager.instance.item.Keys);
+            }
             foreach (var player in SemiFunc.PlayerGetList())
             {
                 if (!player || player.isDisabled)
@@ -345,6 +354,7 @@ namespace FloorRoles
             {
                 DecideRoles();
                 GrantRewards();
+                draws = null; // 次のトラックで抽選し直す(古い抽選を使わない)
             }
             else if (!SemiFunc.RunIsLobby())
             {
@@ -410,7 +420,7 @@ namespace FloorRoles
                 {
                     // 壊れたアイテムでも名前は読める(Unity の null 判定は使わない)
                     string name = (object)attributes != null ? attributes.instanceName : null;
-                    if (string.IsNullOrEmpty(name))
+                    if (string.IsNullOrEmpty(name) || ItemsBeforeOrbs.Contains(name))
                     {
                         continue;
                     }
@@ -443,7 +453,8 @@ namespace FloorRoles
             // ロールオーブ(電池で使い切る)が壊れても、購入したロールオーブの数を減らさない
             private static bool Prefix(StatsManager __instance, string instanceName)
             {
-                if (string.IsNullOrEmpty(instanceName) || !SpawnedOrbs.Any(a => (object)a != null && a.instanceName == instanceName))
+                if (string.IsNullOrEmpty(instanceName) || ItemsBeforeOrbs.Contains(instanceName) ||
+                    !SpawnedOrbs.Any(a => (object)a != null && a.instanceName == instanceName))
                 {
                     return true;
                 }
