@@ -46,6 +46,7 @@ namespace FloorRoles
         private static ConfigEntry<int> RewardAmount;
         private static ConfigEntry<int> SpeedCap;
         private static ConfigEntry<int> LaunchCap;
+        private static ConfigEntry<int> MonitorTextSize;
         private static ConfigEntry<bool> RewardDice;
         private static ConfigEntry<int> DiceCriticalMax;
         private static ConfigEntry<int> DiceFumbleMin;
@@ -55,7 +56,8 @@ namespace FloorRoles
         private class Stat
         {
             internal string Key;   // アップグレードの名前(ゲーム内部)
-            internal string Label; // 表示名
+            internal string Label; // 表示名(しゃべるとき)
+            internal string Short; // モニター用の短い名前
             internal Func<int> Cap; // 上限(0 以下 = なし)
         }
 
@@ -63,21 +65,21 @@ namespace FloorRoles
         {
             new[] // 運搬: スタミナ・パワー系
             {
-                new Stat { Key = "Stamina", Label = "スタミナ" },
-                new Stat { Key = "CrouchRest", Label = "しゃがみ回復" },
-                new Stat { Key = "Strength", Label = "力" },
+                new Stat { Key = "Stamina", Label = "スタミナ", Short = "スタミナ" },
+                new Stat { Key = "CrouchRest", Label = "しゃがみ回復", Short = "しゃがみ回復" },
+                new Stat { Key = "Strength", Label = "力", Short = "力" },
             },
             new[] // 戦闘: 体力・移動系
             {
-                new Stat { Key = "Health", Label = "体力" },
-                new Stat { Key = "Speed", Label = "スプリント速度", Cap = () => SpeedCap.Value },
-                new Stat { Key = "Range", Label = "射程" },
+                new Stat { Key = "Health", Label = "体力", Short = "体力" },
+                new Stat { Key = "Speed", Label = "スプリント速度", Short = "速度", Cap = () => SpeedCap.Value },
+                new Stat { Key = "Range", Label = "射程", Short = "射程" },
             },
             new[] // 特殊: その他
             {
-                new Stat { Key = "ExtraJump", Label = "追加ジャンプ" },
-                new Stat { Key = "TumbleWings", Label = "タンブルウイング" },
-                new Stat { Key = "Launch", Label = "タンブル発射", Cap = () => LaunchCap.Value },
+                new Stat { Key = "ExtraJump", Label = "追加ジャンプ", Short = "ジャンプ" },
+                new Stat { Key = "TumbleWings", Label = "タンブルウイング", Short = "ウイング" },
+                new Stat { Key = "Launch", Label = "タンブル発射", Short = "発射", Cap = () => LaunchCap.Value },
             },
         };
 
@@ -110,6 +112,8 @@ namespace FloorRoles
             HostOnlyDeparture = cfg.Bind(Section, "出発はホストだけ", true, "トラックのモニター(チャット)で出発できるのをホストだけにする");
             PrerollLevel = cfg.Bind(Section, "次のマップを先に決める", true, "トラックに入った時点で次のマップを抽選し、モニターに出す");
             ShowOnMonitor = cfg.Bind(Section, "モニターに表示", true, "役職ごとの報酬をトラックのモニターに出す");
+            MonitorTextSize = cfg.Bind(Section, "モニターの文字の大きさ", 75,
+                new ConfigDescription("モニターに出す役職の説明の文字の大きさ(%)。下が見切れるなら小さくする", new AcceptableValueRange<int>(40, 100)));
             RewardCount = cfg.Bind(Section, "報酬の数", 2,
                 new ConfigDescription("役職ごとの 3 種類のアップグレードから、いくつ抽選するか", new AcceptableValueRange<int>(1, 3)));
             RewardAmount = cfg.Bind(Section, "報酬の上がり幅", 1,
@@ -193,26 +197,30 @@ namespace FloorRoles
 
         private static string MonitorText()
         {
-            var text = new StringBuilder();
+            // モニターは 12 行まで(超えると上から消える)。日本語は折り返しやすく行も高いので、
+            // 1 行を短くして(なるべく折り返さない)、文字も小さめにする
+            string amount = RewardAmount.Value > 1 ? $"+{RewardAmount.Value}" : "";
+            var lines = new List<string>();
             if (nextLevel)
             {
-                text.Append("次のマップ: ").Append(LevelName(nextLevel)).Append('\n');
+                lines.Add("次: " + LevelName(nextLevel));
             }
-            text.Append("ロールオーブを1つだけスロットに入れて役職を選べ\n");
+            lines.Add("オーブ1個をスロット1~3へ");
             if (RewardDice.Value)
             {
-                text.Append($"出発時に1D100: {DiceCriticalMax.Value}以下で{CriticalRewardCount.Value}つ / {DiceFumbleMin.Value}以上で{FumbleRewardCount.Value}つ\n");
+                lines.Add($"1D100 {DiceCriticalMax.Value}以下:{CriticalRewardCount.Value}つ {DiceFumbleMin.Value}以上:{FumbleRewardCount.Value}つ");
             }
             for (int role = 0; role < 3; role++)
             {
-                text.Append(role + 1).Append('.').Append(RoleNames[role]).Append(" 報酬:");
-                text.Append(string.Join("、", draws[role].Select(s => $"{s.Label}+{RewardAmount.Value}")));
-                if (role < 2)
-                {
-                    text.Append('\n');
-                }
+                lines.Add($"{role + 1}{RoleNames[role]} " + string.Join("・", draws[role].Select(s => s.Short + amount)));
             }
-            return text.ToString();
+            int size = MonitorTextSize.Value;
+            if (size >= 100)
+            {
+                return string.Join("\n", lines);
+            }
+            // 上から 1 行ずつ消えても大きさが戻らないように、行ごとに大きさを指定する
+            return string.Join("\n", lines.Select(l => $"<size={size}%>{l}</size>"));
         }
 
         private static List<Stat>[] DrawRewards()
