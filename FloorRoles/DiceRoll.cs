@@ -11,6 +11,7 @@ namespace FloorRoles
     ///
     /// - MOD なしの人の「/r」も、ふつうのチャットとしてホストに届く(ゲームに r というコマンドはない)
     /// - ホストがその人に「1D100 Start!」→「出た数字!」→(1〜5 なら)「critical!」/(96〜100 なら)「fumble!」としゃべらせる
+    ///   クリティカルなら HP を 100 回復、ファンブルなら自爆する
     /// - 打った「/r」自体は、ホストの画面では読み上げない。ほかの人の画面では一瞬出るが、次のセリフで上書きされる
     /// </summary>
     internal static class DiceRoll
@@ -22,6 +23,8 @@ namespace FloorRoles
         private static ConfigEntry<bool> LevelOnly;
         private static ConfigEntry<int> CriticalMax;
         private static ConfigEntry<int> FumbleMin;
+        private static ConfigEntry<int> CriticalHeal;
+        private static ConfigEntry<bool> FumbleExplode;
 
         /// <summary>振っている最中の人(続けて打っても重ならないように)。</summary>
         private static readonly HashSet<PlayerAvatar> Rolling = new HashSet<PlayerAvatar>();
@@ -35,6 +38,9 @@ namespace FloorRoles
                 new ConfigDescription("この数字以下ならクリティカル(0 = なし)", new AcceptableValueRange<int>(0, 100)));
             FumbleMin = cfg.Bind(Section, "ファンブルの下限", 96,
                 new ConfigDescription("この数字以上ならファンブル(101 = なし)", new AcceptableValueRange<int>(1, 101)));
+            CriticalHeal = cfg.Bind(Section, "クリティカルで回復するHP", 100,
+                new ConfigDescription("クリティカルが出た人の HP を回復する量(0 = 回復しない)", new AcceptableValueRange<int>(0, 1000)));
+            FumbleExplode = cfg.Bind(Section, "ファンブルで自爆", true, "ファンブルが出た人を自爆させる");
         }
 
         [HarmonyPatch(typeof(PlayerAvatar), nameof(PlayerAvatar.ChatMessageSpeak))]
@@ -80,9 +86,26 @@ namespace FloorRoles
                     yield break;
                 }
                 yield return new WaitForSeconds(1.5f);
-                if (player)
+                if (!player || player.deadSet)
                 {
-                    Net.Speak(player, result);
+                    yield break;
+                }
+                Net.Speak(player, result);
+                bool critical = value <= CriticalMax.Value;
+                if (critical && CriticalHeal.Value > 0)
+                {
+                    player.playerHealth.HealOther(CriticalHeal.Value, true);
+                    Plugin.Verbose($"1D100: {Net.Name(player)} クリティカルで {CriticalHeal.Value} 回復");
+                }
+                else if (!critical && FumbleExplode.Value)
+                {
+                    // 「fumble!」を言い終わってから自爆
+                    yield return new WaitForSeconds(1f);
+                    if (player && !player.deadSet)
+                    {
+                        Net.Kill(player);
+                        Plugin.Verbose($"1D100: {Net.Name(player)} ファンブルで自爆");
+                    }
                 }
             }
             finally

@@ -13,7 +13,7 @@ namespace FloorRoles
     /// - ショップでは、予算を金袋に分けて出し、最初に触った人の所持金になる。商品は最後に触った人の所持金で買う
     ///   死ぬと所持金を落とし、タンブルすると 1K ずつ落とす(譲渡)。同じ商品を 2 人でつかみ続けると決闘
     /// - 店のアップグレードの品ぞろえを決まった数にする
-    /// - チャットで「/r」と打つと 1D100 を振る(1〜5 クリティカル、96〜100 ファンブル)
+    /// - チャットで「/r」と打つと 1D100 を振る(1〜5 クリティカルで HP 100 回復、96〜100 ファンブルで自爆)
     /// 全部ホストが計算し、ゲーム本来の通信だけを使うので、ホストだけ導入すれば MOD なしの参加者にも効く。
     /// </summary>
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -21,7 +21,7 @@ namespace FloorRoles
     {
         public const string PluginGuid = "shunm.FloorRoles";
         public const string PluginName = "FloorRoles";
-        public const string PluginVersion = "0.2.0";
+        public const string PluginVersion = "0.2.1";
 
         internal static ManualLogSource Log;
         internal static ConfigEntry<bool> VerboseLog;
