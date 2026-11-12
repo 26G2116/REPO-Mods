@@ -30,10 +30,37 @@ namespace DroneTweaks
                 return cached;
             }
             var root = prefab.transform;
-            Matrix4x4 toRoot = root.worldToLocalMatrix;
             bool found = false;
             var result = new Bounds();
 
+            foreach (var part in ColliderBoxes(prefab))
+            {
+                Encapsulate(ref result, ref found, part.Key, part.Value);
+            }
+
+            if (!found)
+            {
+                foreach (var filter in prefab.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    if (filter.sharedMesh && ActiveChain(filter.transform, root))
+                    {
+                        Encapsulate(ref result, ref found, root.worldToLocalMatrix * filter.transform.localToWorldMatrix, filter.sharedMesh.bounds);
+                    }
+                }
+            }
+            if (!found)
+            {
+                result = new Bounds(Vector3.up * 0.25f, Vector3.one * 0.5f);
+            }
+            BoundsCache[prefab] = result;
+            return result;
+        }
+
+        /// <summary>プレハブの当たり判定 1 つずつの「根元から見た変換」と「当たり判定自身の座標での箱」。</summary>
+        private static IEnumerable<KeyValuePair<Matrix4x4, Bounds>> ColliderBoxes(GameObject prefab)
+        {
+            var root = prefab.transform;
+            Matrix4x4 toRoot = root.worldToLocalMatrix;
             foreach (var col in prefab.GetComponentsInChildren<Collider>(true))
             {
                 if (col.isTrigger || !col.enabled || !ActiveChain(col.transform, root))
@@ -60,25 +87,41 @@ namespace DroneTweaks
                     default:
                         continue;
                 }
-                Encapsulate(ref result, ref found, toRoot * col.transform.localToWorldMatrix, local);
+                yield return new KeyValuePair<Matrix4x4, Bounds>(toRoot * col.transform.localToWorldMatrix, local);
             }
+        }
 
-            if (!found)
+        /// <summary>
+        /// 立てて置いたときの「床から height までにある部分」の大きさと、それより上の部分の下端の高さ(床から)。
+        /// カート武器は砲身がカートの壁より上にあるので、根元の部分だけ場所を取り、砲身の下にも低い物を置ける。
+        /// </summary>
+        private static Bounds LowerBounds(GameObject prefab, float height, out float overheadClearance)
+        {
+            var whole = LocalBounds(prefab);
+            float floor = whole.min.y;
+            bool found = false;
+            var lower = new Bounds();
+            overheadClearance = float.PositiveInfinity;
+            foreach (var part in ColliderBoxes(prefab))
             {
-                foreach (var filter in prefab.GetComponentsInChildren<MeshFilter>(true))
+                bool partFound = false;
+                var partBounds = new Bounds();
+                Encapsulate(ref partBounds, ref partFound, part.Key, part.Value);
+                if (partBounds.min.y < floor + height)
                 {
-                    if (filter.sharedMesh && ActiveChain(filter.transform, root))
-                    {
-                        Encapsulate(ref result, ref found, toRoot * filter.transform.localToWorldMatrix, filter.sharedMesh.bounds);
-                    }
+                    Encapsulate(ref lower, ref found, Matrix4x4.identity, partBounds);
+                }
+                else
+                {
+                    overheadClearance = Mathf.Min(overheadClearance, partBounds.min.y - floor);
                 }
             }
             if (!found)
             {
-                result = new Bounds(Vector3.up * 0.25f, Vector3.one * 0.5f);
+                overheadClearance = 0f;
+                return whole;
             }
-            BoundsCache[prefab] = result;
-            return result;
+            return lower;
         }
 
         private static bool ActiveChain(Transform t, Transform root)
@@ -216,68 +259,91 @@ namespace DroneTweaks
                 return slots;
             }
 
-            Vector3 size = inCart.lossyScale;
-            size = new Vector3(Mathf.Abs(size.x), Mathf.Abs(size.y), Mathf.Abs(size.z));
+            // In Cart の箱は X 軸まわりに 90° 傾けて作られている(箱の Y がカートの前後、Z が高さ)。
+            // そのまま使うとアイテムが横倒しになるので、カート自身の向きを基準に、箱の大きさを測り直す
+            Quaternion boxRotation = cart.transform.rotation;
+            Matrix4x4 toCart = Matrix4x4.Rotate(Quaternion.Inverse(boxRotation)) * inCart.localToWorldMatrix;
+            Vector3 size = Vector3.zero;
+            for (int i = 0; i < 3; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    size[i] += Mathf.Abs(toCart[i, j]);
+                }
+            }
             float usableX = size.x - Gap * 2f;
             float usableZ = size.z - Gap * 2f;
-            Quaternion boxRotation = inCart.rotation;
 
             var order = new List<Item>(items);
             order.Sort((a, b) => Footprint(b).CompareTo(Footprint(a)));
 
             float cursorX = -usableX / 2f, cursorZ = -usableZ / 2f, rowDepth = 0f;
+            // カート武器の砲身の下の範囲(箱の座標)と、その下に置ける高さ
+            Rect overhead = Rect.zero;
+            float overheadClearance = float.PositiveInfinity;
 
-            // カート武器(C.A.R.T. レーザー / キャノン)は、カートの中に置かれていると起動する(差し込み口はない)。
-            // 1 台だけ、カートの片側の端(幅の真ん中)に置き、残りの場所にほかのアイテムを並べる。
-            // 箱より少し大きくても、はみ出しが少ない向きで中に置く
+            // カート武器(C.A.R.T. レーザー / キャノン)は、カートの中に置かれていると起動し、カートと同じ向きに立つ(差し込み口はない)。
+            // 1 台だけ、起動したときと同じ向き(立てて、砲口がカートの前)でカートの後ろの端(幅の真ん中)に置く。
+            // 砲身は壁より上にあるので、根元の部分だけ場所を取る
             var weapon = order.Find(i => i.prefab.Prefab.GetComponent<ItemCartCannonMain>());
             if (weapon)
             {
                 order.Remove(weapon);
-                var local = LocalBounds(weapon.prefab.Prefab);
-                int bestTurn = 0;
-                float bestOver = float.PositiveInfinity;
-                for (int turn = 0; turn < 2; turn++)
-                {
-                    var fp = RotatedSize(local.size, turn == 1);
-                    float over = Mathf.Max(0f, fp.x - usableX) + Mathf.Max(0f, fp.z - usableZ);
-                    if (over < bestOver - 0.001f)
-                    {
-                        bestOver = over;
-                        bestTurn = turn;
-                    }
-                }
-                var footprint = RotatedSize(local.size, bestTurn == 1);
-                float zCenter = footprint.z >= usableZ ? 0f : -usableZ / 2f + footprint.z / 2f;
-                var rotation = boxRotation * Quaternion.Euler(0f, bestTurn * 90f, 0f);
-                var slotCenter = inCart.position + boxRotation * new Vector3(0f, 0f, zCenter);
+                var whole = LocalBounds(weapon.prefab.Prefab);
+                var lower = LowerBounds(weapon.prefab.Prefab, size.y, out float clearance);
+                float zMin = -usableZ / 2f;
+                // 根元の箱の中心を、幅の真ん中・後ろの端に合わせる
+                var slotLocal = new Vector3(0f, 0f, zMin + lower.size.z / 2f);
+                var slotCenter = inCart.position + boxRotation * slotLocal;
                 float floorY = CartFloorY(cart, slotCenter, size.y) + 0.05f;
-                var offset = rotation * local.center;
-                slots.Add(new Slot
+                var offset = boxRotation * lower.center;
+                var weaponPosition = new Vector3(slotCenter.x - offset.x, floorY - whole.min.y, slotCenter.z - offset.z);
+                if (Obstructed(cart, weaponPosition + boxRotation * whole.center, whole.extents, boxRotation))
                 {
-                    Item = weapon,
-                    Position = new Vector3(slotCenter.x - offset.x, floorY - local.min.y, slotCenter.z - offset.z),
-                    Rotation = rotation,
-                });
-                // ほかのアイテムは、武器の次の列から並べる
-                cursorZ = -usableZ / 2f + footprint.z + Gap;
+                    // 立てるとカートの上や外の物・壁にぶつかる: 床に置く
+                    remaining.Add(weapon);
+                }
+                else
+                {
+                    slots.Add(new Slot { Item = weapon, Position = weaponPosition, Rotation = boxRotation });
+                    // ほかのアイテムは、根元の次の列から並べる
+                    cursorZ = zMin + lower.size.z + Gap;
+                    // 砲身の下(根元より前)は、砲身の下端より低い物だけ置ける
+                    float shiftZ = slotLocal.z - lower.center.z;
+                    overhead = Rect.MinMaxRect(whole.min.x - lower.center.x, whole.min.z + shiftZ, whole.max.x - lower.center.x, whole.max.z + shiftZ);
+                    overheadClearance = clearance;
+                }
             }
             foreach (var item in order)
             {
                 var local = LocalBounds(item.prefab.Prefab);
                 bool placed = false;
-                // 今の列に入る向きを先に試し、だめなら次の列へ
-                for (int pass = 0; pass < 2 && !placed; pass++)
+                bool tall = local.size.y > overheadClearance - Gap;
+                // 今の列に入る向きを先に試し、だめなら次の列へ。砲身より高い物は、最後に砲身より前の列も試す
+                for (int pass = 0; pass < 3 && !placed; pass++)
                 {
+                    if (pass == 2 && !tall)
+                    {
+                        break;
+                    }
                     for (int turn = 0; turn < 2 && !placed; turn++)
                     {
                         var footprint = RotatedSize(local.size, turn == 1);
                         float x = cursorX, z = cursorZ, depth = rowDepth;
-                        if (pass == 1)
+                        if (pass >= 1)
                         {
                             x = -usableX / 2f;
                             z = cursorZ + rowDepth + Gap;
                             depth = 0f;
+                        }
+                        if (pass == 2)
+                        {
+                            z = Mathf.Max(z, overhead.yMax + Gap);
+                        }
+                        // 砲身より高い物が砲身の下にかかるときは、砲身の右側へずらす
+                        if (tall && overhead.Overlaps(Rect.MinMaxRect(x, z, x + footprint.x, z + footprint.z)))
+                        {
+                            x = Mathf.Max(x, overhead.xMax + Gap);
                         }
                         if (x + footprint.x > usableX / 2f + 0.001f || z + footprint.z > usableZ / 2f + 0.001f)
                         {
