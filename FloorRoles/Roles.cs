@@ -24,6 +24,8 @@ namespace FloorRoles
     /// - トラックに入ったら、次のマップを先に抽選し、役職ごとの報酬(3 種類から 2 つ)を抽選してモニターに出す
     /// - 人数分のロールオーブを出す。トラックを出発したとき、ロールオーブを 1 つだけインベントリに入れている人は、
     ///   入れたスロット(1 運搬 / 2 戦闘 / 3 特殊)の役職になる。0 個・2 個以上なら役職なし
+    /// - 出発したとき、役職のある人ごとに 1D100 を振る。クリティカル(1〜5)なら 3 種類全部、ファンブル(96〜100)なら抽選分から 1 つ、
+    ///   それ以外は抽選した 2 つをもらえる。ダイスの結果と報酬は、次のレベルの開始時にその人がしゃべる
     /// - 報酬はゲーム本来のアップグレードと同じ(全員の PC で同じ処理が動く)ので、MOD なしの参加者にも効く。
     ///   上げるのは出発の瞬間(ショップで使ったのと同じ扱い)で、次のマップの開始時に反映される
     /// - 出発(モニターのチャット)はホストだけができる
@@ -44,6 +46,11 @@ namespace FloorRoles
         private static ConfigEntry<int> RewardAmount;
         private static ConfigEntry<int> SpeedCap;
         private static ConfigEntry<int> LaunchCap;
+        private static ConfigEntry<bool> RewardDice;
+        private static ConfigEntry<int> DiceCriticalMax;
+        private static ConfigEntry<int> DiceFumbleMin;
+        private static ConfigEntry<int> CriticalRewardCount;
+        private static ConfigEntry<int> FumbleRewardCount;
 
         private class Stat
         {
@@ -111,6 +118,16 @@ namespace FloorRoles
                 new ConfigDescription("役職の報酬でスプリント速度をここまでしか上げない(0 = 上限なし)", new AcceptableValueRange<int>(0, 99)));
             LaunchCap = cfg.Bind(Section, "タンブル発射の上限", 2,
                 new ConfigDescription("役職の報酬でタンブル発射をここまでしか上げない(0 = 上限なし)", new AcceptableValueRange<int>(0, 99)));
+            RewardDice = cfg.Bind(Section, "報酬ダイス", true,
+                "出発したとき、役職のある人ごとに 1D100 を振り、報酬の数を変える(クリティカルで増える・ファンブルで減る)。結果は次のマップの開始時にしゃべる");
+            DiceCriticalMax = cfg.Bind(Section, "報酬ダイスのクリティカルの上限", 5,
+                new ConfigDescription("この数字以下ならクリティカル(0 = なし)", new AcceptableValueRange<int>(0, 100)));
+            DiceFumbleMin = cfg.Bind(Section, "報酬ダイスのファンブルの下限", 96,
+                new ConfigDescription("この数字以上ならファンブル(101 = なし)", new AcceptableValueRange<int>(1, 101)));
+            CriticalRewardCount = cfg.Bind(Section, "クリティカルの報酬の数", 3,
+                new ConfigDescription("クリティカルのとき、役職の 3 種類からいくつもらえるか", new AcceptableValueRange<int>(0, 3)));
+            FumbleRewardCount = cfg.Bind(Section, "ファンブルの報酬の数", 1,
+                new ConfigDescription("ファンブルのとき、役職の 3 種類からいくつもらえるか", new AcceptableValueRange<int>(0, 3)));
         }
 
         // ================================================================
@@ -182,6 +199,10 @@ namespace FloorRoles
                 text.Append("次のマップ: ").Append(LevelName(nextLevel)).Append('\n');
             }
             text.Append("ロールオーブを1つだけスロットに入れて役職を選べ\n");
+            if (RewardDice.Value)
+            {
+                text.Append($"出発時に1D100: {DiceCriticalMax.Value}以下で{CriticalRewardCount.Value}つ / {DiceFumbleMin.Value}以上で{FumbleRewardCount.Value}つ\n");
+            }
             for (int role = 0; role < 3; role++)
             {
                 text.Append(role + 1).Append('.').Append(RoleNames[role]).Append(" 報酬:");
@@ -477,8 +498,29 @@ namespace FloorRoles
         {
             foreach (var pair in NextRoles)
             {
+                // 報酬ダイス: クリティカルなら多く、ファンブルなら少なく、それ以外はいつもの数
+                int count = Mathf.Clamp(RewardCount.Value, 1, 3);
+                string dice = null;
+                if (RewardDice.Value)
+                {
+                    int value = UnityEngine.Random.Range(1, 101);
+                    if (value <= DiceCriticalMax.Value)
+                    {
+                        count = CriticalRewardCount.Value;
+                        dice = $"ダイス{value} クリティカル！";
+                    }
+                    else if (value >= DiceFumbleMin.Value)
+                    {
+                        count = FumbleRewardCount.Value;
+                        dice = $"ダイス{value} ファンブル！";
+                    }
+                    else
+                    {
+                        dice = $"ダイス{value}。";
+                    }
+                }
                 var labels = new List<string>();
-                foreach (var stat in ResolveStats(pair.Key, pair.Value))
+                foreach (var stat in ResolveStats(pair.Key, pair.Value, count))
                 {
                     int amount = RewardAmount.Value;
                     int cap = stat.Cap != null ? stat.Cap() : 0;
@@ -493,7 +535,12 @@ namespace FloorRoles
                     Net.Upgrade(pair.Key, stat.Key, amount);
                     labels.Add($"{stat.Label}+{amount}");
                 }
-                string line = $"{RoleNames[(int)pair.Value]}: " + (labels.Count > 0 ? string.Join("、", labels) : "報酬なし(上限)");
+                string line = $"{RoleNames[(int)pair.Value]}: " +
+                              (labels.Count > 0 ? string.Join("、", labels) : count > 0 ? "報酬なし(上限)" : "報酬なし");
+                if (dice != null)
+                {
+                    line = dice + " " + line;
+                }
                 Announcements[pair.Key] = line;
                 Plugin.Verbose($"報酬: {pair.Key} {line}");
             }
@@ -525,27 +572,21 @@ namespace FloorRoles
             announceScheduled = false;
         }
 
-        /// <summary>抽選した報酬のうち、上限に達しているものは、同じ役職の残りに差し替える。</summary>
-        private static List<Stat> ResolveStats(string steamID, Role role)
+        /// <summary>
+        /// 役職の 3 種類から count 個を選ぶ。モニターに出した抽選分を先に(数が少ないときはその中からランダムに)、
+        /// 足りなければ残りを使う。上限に達しているものは飛ばす(同じ役職の残りに差し替わる)。
+        /// </summary>
+        private static List<Stat> ResolveStats(string steamID, Role role, int count)
         {
-            var drawn = draws != null ? draws[(int)role] : new List<Stat>();
-            var result = new List<Stat>();
-            var spare = RoleStats[(int)role].Where(s => !drawn.Contains(s)).ToList();
-            foreach (var stat in drawn)
+            var drawn = draws != null ? draws[(int)role].ToList() : new List<Stat>();
+            // 抽選分の順番を混ぜておく(ファンブルで 1 つだけのとき、どちらになるかをランダムにする)
+            for (int i = drawn.Count - 1; i > 0; i--)
             {
-                if (!Capped(steamID, stat))
-                {
-                    result.Add(stat);
-                    continue;
-                }
-                var substitute = spare.FirstOrDefault(s => !Capped(steamID, s));
-                if (substitute != null)
-                {
-                    spare.Remove(substitute);
-                    result.Add(substitute);
-                }
+                int j = UnityEngine.Random.Range(0, i + 1);
+                (drawn[i], drawn[j]) = (drawn[j], drawn[i]);
             }
-            return result;
+            var candidates = drawn.Concat(RoleStats[(int)role].Where(s => !drawn.Contains(s)));
+            return candidates.Where(s => !Capped(steamID, s)).Take(Mathf.Max(0, count)).ToList();
         }
 
         private static bool Capped(string steamID, Stat stat)

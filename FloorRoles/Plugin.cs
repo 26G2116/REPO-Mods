@@ -9,7 +9,7 @@ namespace FloorRoles
     /// <summary>
     /// 階層毎選択型役職 MOD。
     /// - トラック(ショップのあと)で、ロールオーブを入れたインベントリのスロット(1 運搬 / 2 戦闘 / 3 特殊)で役職を選ぶ
-    ///   役職ごとにステータス報酬(アップグレード)を 2 つ、次のレベルの開始時にもらえる。次のマップはトラックの時点で決まっている
+    ///   役職ごとにステータス報酬(アップグレード)を出発時の 1D100 で 1〜3 つもらえる(結果は次のレベルの開始時にしゃべる)。次のマップはトラックの時点で決まっている
     /// - ショップでは、予算を金袋に分けて出し、最初に触った人の所持金になる。商品は最後に触った人の所持金で買う
     ///   死ぬと所持金を落とし、タンブルすると 1K ずつ落とす(譲渡)。同じ商品を 2 人でつかみ続けると決闘
     /// - 店のアップグレードの品ぞろえを決まった数にする
@@ -21,7 +21,7 @@ namespace FloorRoles
     {
         public const string PluginGuid = "shunm.FloorRoles";
         public const string PluginName = "FloorRoles";
-        public const string PluginVersion = "0.2.3";
+        public const string PluginVersion = "0.2.4";
 
         internal static ManualLogSource Log;
         internal static ConfigEntry<bool> VerboseLog;
