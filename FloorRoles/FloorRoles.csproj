@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>FloorRoles</AssemblyName>
     <RootNamespace>FloorRoles</RootNamespace>
-    <Version>0.2.7</Version>
+    <Version>0.2.8</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <DebugType>portable</DebugType>
@@ -32,6 +32,11 @@
     <Reference Include="UnityEngine" HintPath="$(ManagedDir)\UnityEngine.dll" Private="false" />
     <Reference Include="UnityEngine.CoreModule" HintPath="$(ManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
     <Reference Include="UnityEngine.PhysicsModule" HintPath="$(ManagedDir)\UnityEngine.PhysicsModule.dll" Private="false" />
+    <Reference Include="Unity.TextMeshPro" HintPath="$(ManagedDir)\Unity.TextMeshPro.dll" Private="false" />
+    <Reference Include="UnityEngine.UI" HintPath="$(ManagedDir)\UnityEngine.UI.dll" Private="false" />
+    <Reference Include="UnityEngine.UIModule" HintPath="$(ManagedDir)\UnityEngine.UIModule.dll" Private="false" />
+    <Reference Include="UnityEngine.TextCoreFontEngineModule" HintPath="$(ManagedDir)\UnityEngine.TextCoreFontEngineModule.dll" Private="false" />
+    <Reference Include="UnityEngine.TextCoreTextEngineModule" HintPath="$(ManagedDir)\UnityEngine.TextCoreTextEngineModule.dll" Private="false" />
     <Reference Include="Unity.Localization" HintPath="$(ManagedDir)\Unity.Localization.dll" Private="false" />
     <Reference Include="PhotonUnityNetworking" HintPath="$(ManagedDir)\PhotonUnityNetworking.dll" Private="false" />
     <Reference Include="PhotonRealtime" HintPath="$(ManagedDir)\PhotonRealtime.dll" Private="false" />

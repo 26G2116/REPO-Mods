@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using BepInEx.Configuration;
 using HarmonyLib;
+using TMPro;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -21,11 +22,11 @@ namespace FloorRoles
     /// <summary>
     /// トラック(ショップのあと)で役職を選び、次のレベルの開始時にステータス報酬を渡す。
     ///
-    /// - トラックに入ったら、次のマップを先に抽選し、役職ごとの報酬(3 種類から 2 つ)を抽選してモニターに出す
+    /// - トラックに入ったら、次のマップを先に抽選し、役職ごとの報酬の候補(運搬・戦闘は 3 種類、特殊は 4 種類)ともらえる数をモニターに出す
     /// - 人数分のロールオーブを出す。トラックを出発したとき、ロールオーブを 1 つだけインベントリに入れている人は、
     ///   入れたスロット(1 運搬 / 2 戦闘 / 3 特殊)の役職になる。0 個・2 個以上なら役職なし
-    /// - 出発したとき、役職のある人ごとに 1D100 を振る。クリティカル(1〜5)なら 3 種類全部、ファンブル(96〜100)なら抽選分から 1 つ、
-    ///   それ以外は抽選した 2 つをもらえる。ダイスの結果と報酬は、次のレベルの開始時にその人がしゃべる
+    /// - 出発したとき、役職のある人ごとに 1D100 を振り、もらえる数を決める(クリティカル 1〜5 で 3 つ、ファンブル 96〜100 で 1 つ、
+    ///   それ以外は 2 つ)。どれをもらえるかは役職の候補からランダム。ダイスの結果と報酬は、次のレベルの開始時にその人がしゃべる
     /// - 報酬はゲーム本来のアップグレードと同じ(全員の PC で同じ処理が動く)ので、MOD なしの参加者にも効く。
     ///   上げるのは出発の瞬間(ショップで使ったのと同じ扱い)で、次のマップの開始時に反映される
     /// - 出発(モニターのチャット)はホストだけができる
@@ -66,21 +67,22 @@ namespace FloorRoles
         {
             new[] // 運搬: スタミナ・パワー系
             {
-                new Stat { Key = "Stamina", Label = "スタミナ" },
-                new Stat { Key = "CrouchRest", Label = "しゃがみ回復" },
-                new Stat { Key = "Strength", Label = "力" },
+                new Stat { Key = "Stamina", Label = "Stamina" },
+                new Stat { Key = "CrouchRest", Label = "Crouch Rest" },
+                new Stat { Key = "Strength", Label = "Strength" },
             },
             new[] // 戦闘: 体力・移動系
             {
-                new Stat { Key = "Health", Label = "体力" },
-                new Stat { Key = "Speed", Label = "スプリント速度", Cap = () => SpeedCap.Value },
-                new Stat { Key = "Range", Label = "射程" },
+                new Stat { Key = "Health", Label = "Health" },
+                new Stat { Key = "Speed", Label = "Sprint Speed", Cap = () => SpeedCap.Value },
+                new Stat { Key = "Range", Label = "Range" },
             },
-            new[] // 特殊: その他
+            new[] // 特殊: その他(タンブル系)
             {
-                new Stat { Key = "ExtraJump", Label = "追加ジャンプ" },
-                new Stat { Key = "TumbleWings", Label = "タンブルウイング" },
-                new Stat { Key = "Launch", Label = "タンブル発射", Cap = () => LaunchCap.Value },
+                new Stat { Key = "ExtraJump", Label = "Extra Jump" },
+                new Stat { Key = "TumbleWings", Label = "Tumble Wings" },
+                new Stat { Key = "Launch", Label = "Tumble Launch", Cap = () => LaunchCap.Value },
+                new Stat { Key = "TumbleClimb", Label = "Tumble Climb" },
             },
         };
 
@@ -89,7 +91,8 @@ namespace FloorRoles
         // ---- このトラックの状態 ----
         private static int lobbyGeneration = -1;
         private static Level nextLevel;
-        private static List<Stat>[] draws;
+        /// <summary>このトラックの準備(次のマップの抽選など)が済んだか。出発時の報酬はこれが立っているときだけ渡す。</summary>
+        private static bool lobbyPrepared;
         private static readonly List<ItemAttributes> SpawnedOrbs = new List<ItemAttributes>();
         /// <summary>ロールオーブを出す前からあった「購入したアイテム」の名前(片付けで消さない)。</summary>
         private static readonly HashSet<string> ItemsBeforeOrbs = new HashSet<string>();
@@ -122,7 +125,8 @@ namespace FloorRoles
                 new ConfigDescription("役職の説明のあとに入れる空行の数(画面の下の見えない部分に入る)。まだ下が見切れるなら増やす",
                     new AcceptableValueRange<int>(0, 8)));
             RewardCount = cfg.Bind(Section, "報酬の数", 2,
-                new ConfigDescription("役職ごとの 3 種類のアップグレードから、いくつ抽選するか", new AcceptableValueRange<int>(1, 3)));
+                new ConfigDescription("報酬ダイスがクリティカル・ファンブル以外のとき(報酬ダイスなしならいつも)、役職の候補からランダムにいくつもらえるか",
+                    new AcceptableValueRange<int>(1, 3)));
             RewardAmount = cfg.Bind(Section, "報酬の上がり幅", 1,
                 new ConfigDescription("報酬 1 つあたり、アップグレードをいくつ上げるか", new AcceptableValueRange<int>(1, 5)));
             SpeedCap = cfg.Bind(Section, "スプリント速度の上限", 4,
@@ -136,9 +140,9 @@ namespace FloorRoles
             DiceFumbleMin = cfg.Bind(Section, "報酬ダイスのファンブルの下限", 96,
                 new ConfigDescription("この数字以上ならファンブル(101 = なし)", new AcceptableValueRange<int>(1, 101)));
             CriticalRewardCount = cfg.Bind(Section, "クリティカルの報酬の数", 3,
-                new ConfigDescription("クリティカルのとき、役職の 3 種類からいくつもらえるか", new AcceptableValueRange<int>(0, 3)));
+                new ConfigDescription("クリティカルのとき、役職の候補からいくつもらえるか(候補の数より多ければ全部)", new AcceptableValueRange<int>(0, 4)));
             FumbleRewardCount = cfg.Bind(Section, "ファンブルの報酬の数", 1,
-                new ConfigDescription("ファンブルのとき、役職の 3 種類からいくつもらえるか", new AcceptableValueRange<int>(0, 3)));
+                new ConfigDescription("ファンブルのとき、役職の候補からいくつもらえるか", new AcceptableValueRange<int>(0, 4)));
         }
 
         // ================================================================
@@ -177,13 +181,13 @@ namespace FloorRoles
             }
 
             nextLevel = PrerollLevel.Value ? PickNextLevel() : null;
-            draws = DrawRewards();
+            lobbyPrepared = true;
             SpawnedOrbs.Clear();
             if (SpawnOrbs.Value)
             {
                 SpawnRollOrbs();
             }
-            Plugin.Verbose($"トラック: 次のマップ {LevelName(nextLevel)}、報酬 {DescribeDraws(draws)}");
+            Plugin.Verbose($"トラック: 次のマップ {LevelName(nextLevel)}");
 
             if (!ShowOnMonitor.Value)
             {
@@ -209,12 +213,13 @@ namespace FloorRoles
 
         private static string MonitorText()
         {
-            // モニターは文章を 12 行まで残す(超えると上の行から消える)が、日本語だと画面に見えるのは 10 行ほどで、
-            // 下が見切れる。表示枠はホストの MOD からは変えられないので、送る文章だけで収める:
+            // モニターは文章を 12 行まで残す(超えると上の行から消える。折り返しも 1 行に数える)が、
+            // 日本語だと画面に見えるのは 10 行ほどで、下が見切れる。表示枠はホストの MOD からは変えられないので、送る文章だけで収める:
             // - 役職の説明 + 末尾の空行で 11 行にする(税務官の名前の行と合わせて 12 行)。古い文章は全部押し出され、
             //   画面には役職の説明だけが残る。見えない下の部分には末尾の空行が入る
+            // - 長い行は折り返すので、実際の行数をモニターと同じ設定の文字で測ってから空行の数を決める
             // - 文字を小さめにして、行間を少し空ける
-            string amount = RewardAmount.Value > 1 ? $"+{RewardAmount.Value}" : "";
+            string amount = RewardAmount.Value > 1 ? $"(各+{RewardAmount.Value})" : "";
             var lines = new List<string>();
             if (nextLevel)
             {
@@ -223,52 +228,131 @@ namespace FloorRoles
             lines.Add("ロールオーブ1個をスロット1~3へ");
             for (int role = 0; role < 3; role++)
             {
-                lines.Add($"{role + 1} {RoleNames[role]}: " + string.Join("・", draws[role].Select(s => s.Label + amount)));
+                lines.Add($"{role + 1} {RoleNames[role]}: {string.Join(", ", RoleStats[role].Select(s => s.Label))} の中からランダムに{CountRange(RoleStats[role].Length)}個{amount}");
             }
             if (RewardDice.Value)
             {
-                lines.Add($"出発時ダイス {DiceCriticalMax.Value}以下:{CriticalRewardCount.Value}つ {DiceFumbleMin.Value}以上:{FumbleRewardCount.Value}つ");
+                var dice = new List<string>();
+                if (DiceCriticalMax.Value >= 1)
+                {
+                    dice.Add($"{DiceCriticalMax.Value}以下:{CriticalRewardCount.Value}個");
+                }
+                if (DiceFumbleMin.Value <= 100)
+                {
+                    dice.Add($"{DiceFumbleMin.Value}以上:{FumbleRewardCount.Value}個");
+                }
+                dice.Add($"他:{Mathf.Clamp(RewardCount.Value, 1, 3)}個");
+                lines.Add("出発時ダイス " + string.Join(" ", dice));
             }
-            int padding = Mathf.Max(MonitorBottomPadding.Value, 11 - lines.Count);
+
+            int measured = MeasureLines(FormatMonitorLines(lines));
+            int contentLines = measured > 0 ? measured : lines.Count;
+            // 11 行(名前の行と合わせて 12 行)に足りない分は必ず埋める。見えない下の部分の分(設定の空行)は、
+            // 名前の行を押し出す分までは足してよいが、役職の説明は押し出さない
+            int padding = Mathf.Max(0, Mathf.Max(11 - contentLines, Mathf.Min(MonitorBottomPadding.Value, 12 - contentLines)));
             for (int i = 0; i < padding; i++)
             {
                 lines.Add(" ");
             }
+            Plugin.Verbose($"モニター: 役職の説明 {lines.Count - padding} 行 → 表示 {contentLines} 行(測定 {(measured > 0 ? "成功" : "失敗")})、空行 {padding}");
+            return FormatMonitorLines(lines);
+        }
 
-            // 上から 1 行ずつ消えても効き目が残るように、行ごとに大きさと行の高さを指定する。
-            // 行の高さは改行の時点で効くので閉じずに続け、最後の行の終わりで閉じる(あとから来る文章に残さない)
+        /// <summary>
+        /// 上から 1 行ずつ消えても効き目が残るように、行ごとに大きさと行の高さを指定する。
+        /// 行の高さは改行の時点で効くので閉じずに続け、最後の行の終わりで閉じる(あとから来る文章に残さない)
+        /// </summary>
+        private static string FormatMonitorLines(List<string> lines)
+        {
             int size = MonitorTextSize.Value;
             string lineHeight = $"<line-height={MonitorLineHeight.Value}%>";
             var text = string.Join("\n", lines.Select(l => size >= 100 ? lineHeight + l : $"{lineHeight}<size={size}%>{l}</size>"));
             return text + "</line-height>";
         }
 
-        private static List<Stat>[] DrawRewards()
+        /// <summary>もらえる数の範囲(報酬ダイスの結果ごとの数の、最小〜最大。候補の数より多くはもらえない)。</summary>
+        private static string CountRange(int candidates)
         {
-            var result = new List<Stat>[3];
-            for (int role = 0; role < 3; role++)
+            var counts = new List<int> { Mathf.Clamp(RewardCount.Value, 1, 3) };
+            if (RewardDice.Value)
             {
-                var pool = RoleStats[role].ToList();
-                var picked = new List<Stat>();
-                int count = Mathf.Clamp(RewardCount.Value, 1, pool.Count);
-                for (int i = 0; i < count; i++)
+                if (DiceCriticalMax.Value >= 1)
                 {
-                    int index = UnityEngine.Random.Range(0, pool.Count);
-                    picked.Add(pool[index]);
-                    pool.RemoveAt(index);
+                    counts.Add(CriticalRewardCount.Value);
                 }
-                result[role] = picked;
+                if (DiceFumbleMin.Value <= 100)
+                {
+                    counts.Add(FumbleRewardCount.Value);
+                }
             }
-            return result;
+            int min = Mathf.Min(counts.Min(), candidates);
+            int max = Mathf.Min(counts.Max(), candidates);
+            return min == max ? $"{min}" : $"{min}~{max}";
         }
 
-        private static string DescribeDraws(List<Stat>[] value)
+        /// <summary>
+        /// 文章がモニターで何行になるか(折り返しを含む)を、ホストのモニターと同じ設定の見えない文字で測る。
+        /// モニター本体の文字は使わない(測ると表示中の文章の状態が変わるため)。測れなければ -1。
+        /// </summary>
+        private static int MeasureLines(string text)
         {
-            if (value == null)
+            var screen = TruckScreenText.instance;
+            var source = screen ? screen.textMesh : null;
+            if (!source)
             {
-                return "-";
+                return -1;
             }
-            return string.Join(" / ", value.Select((list, i) => $"{RoleNames[i]}: {string.Join("、", list.Select(s => s.Label))}"));
+            GameObject go = null;
+            try
+            {
+                go = new GameObject("FloorRoles.MonitorMeasure", typeof(RectTransform));
+                var rect = (RectTransform)go.transform;
+                rect.SetParent(source.transform.parent, false);
+                var sourceRect = source.rectTransform;
+                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = sourceRect.pivot;
+                rect.sizeDelta = sourceRect.rect.size;
+                rect.localScale = sourceRect.localScale;
+                rect.localRotation = sourceRect.localRotation;
+
+                var probe = go.AddComponent<TextMeshProUGUI>();
+                probe.font = source.font;
+                probe.fontSharedMaterial = source.fontSharedMaterial;
+                probe.fontStyle = source.fontStyle;
+                probe.enableAutoSizing = source.enableAutoSizing;
+                probe.fontSizeMin = source.fontSizeMin;
+                probe.fontSizeMax = source.fontSizeMax;
+                probe.fontSize = source.fontSize;
+                probe.textWrappingMode = source.textWrappingMode;
+                probe.overflowMode = source.overflowMode;
+                probe.margin = source.margin;
+                probe.lineSpacing = source.lineSpacing;
+                probe.lineSpacingAdjustment = source.lineSpacingAdjustment;
+                probe.paragraphSpacing = source.paragraphSpacing;
+                probe.characterSpacing = source.characterSpacing;
+                probe.wordSpacing = source.wordSpacing;
+                probe.alignment = source.alignment;
+                probe.richText = source.richText;
+                probe.raycastTarget = false;
+                probe.color = Color.clear;
+
+                probe.text = SemiFunc.EmojiText(text);
+                probe.ForceMeshUpdate(true, true);
+                return probe.textInfo != null ? probe.textInfo.lineCount : -1;
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"モニターの行数を測れませんでした: {e.Message}");
+                return -1;
+            }
+            finally
+            {
+                if (go)
+                {
+                    // 同じフレームのうちに消えるので、画面には映らない
+                    Object.Destroy(go);
+                }
+            }
         }
 
         // ---- 次のマップ ----
@@ -399,17 +483,17 @@ namespace FloorRoles
 
         internal static void OnLeavingLevel(bool completed)
         {
-            if (Enabled.Value && SemiFunc.RunIsLobby() && completed && draws != null)
+            if (Enabled.Value && SemiFunc.RunIsLobby() && completed && lobbyPrepared)
             {
                 DecideRoles();
                 GrantRewards();
-                draws = null; // 次のトラックで抽選し直す(古い抽選を使わない)
             }
             else if (!SemiFunc.RunIsLobby())
             {
                 // レベルを出るときは、そのレベルの役職をおしまいにする
                 CurrentRoles.Clear();
             }
+            lobbyPrepared = false; // 次のトラックで準備し直す
             CleanupOrbs();
             announceScheduled = false;
         }
@@ -564,7 +648,7 @@ namespace FloorRoles
                     labels.Add($"{stat.Label}+{amount}");
                 }
                 string line = $"{RoleNames[(int)pair.Value]}: " +
-                              (labels.Count > 0 ? string.Join("、", labels) : count > 0 ? "報酬なし(上限)" : "報酬なし");
+                              (labels.Count > 0 ? string.Join(", ", labels) : count > 0 ? "報酬なし(上限)" : "報酬なし");
                 if (dice != null)
                 {
                     line = dice + " " + line;
@@ -601,20 +685,17 @@ namespace FloorRoles
         }
 
         /// <summary>
-        /// 役職の 3 種類から count 個を選ぶ。モニターに出した抽選分を先に(数が少ないときはその中からランダムに)、
-        /// 足りなければ残りを使う。上限に達しているものは飛ばす(同じ役職の残りに差し替わる)。
+        /// 役職の候補からランダムに count 個を選ぶ。上限に達しているものは飛ばす(同じ役職の残りに差し替わる)。
         /// </summary>
         private static List<Stat> ResolveStats(string steamID, Role role, int count)
         {
-            var drawn = draws != null ? draws[(int)role].ToList() : new List<Stat>();
-            // 抽選分の順番を混ぜておく(ファンブルで 1 つだけのとき、どちらになるかをランダムにする)
-            for (int i = drawn.Count - 1; i > 0; i--)
+            var pool = RoleStats[(int)role].ToList();
+            for (int i = pool.Count - 1; i > 0; i--)
             {
                 int j = UnityEngine.Random.Range(0, i + 1);
-                (drawn[i], drawn[j]) = (drawn[j], drawn[i]);
+                (pool[i], pool[j]) = (pool[j], pool[i]);
             }
-            var candidates = drawn.Concat(RoleStats[(int)role].Where(s => !drawn.Contains(s)));
-            return candidates.Where(s => !Capped(steamID, s)).Take(Mathf.Max(0, count)).ToList();
+            return pool.Where(s => !Capped(steamID, s)).Take(Mathf.Max(0, count)).ToList();
         }
 
         private static bool Capped(string steamID, Stat stat)
