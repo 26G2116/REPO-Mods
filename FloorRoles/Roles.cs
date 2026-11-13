@@ -47,6 +47,8 @@ namespace FloorRoles
         private static ConfigEntry<int> SpeedCap;
         private static ConfigEntry<int> LaunchCap;
         private static ConfigEntry<int> MonitorTextSize;
+        private static ConfigEntry<int> MonitorLineHeight;
+        private static ConfigEntry<int> MonitorBottomPadding;
         private static ConfigEntry<bool> RewardDice;
         private static ConfigEntry<int> DiceCriticalMax;
         private static ConfigEntry<int> DiceFumbleMin;
@@ -57,7 +59,6 @@ namespace FloorRoles
         {
             internal string Key;   // アップグレードの名前(ゲーム内部)
             internal string Label; // 表示名(しゃべるとき)
-            internal string Short; // モニター用の短い名前
             internal Func<int> Cap; // 上限(0 以下 = なし)
         }
 
@@ -65,21 +66,21 @@ namespace FloorRoles
         {
             new[] // 運搬: スタミナ・パワー系
             {
-                new Stat { Key = "Stamina", Label = "スタミナ", Short = "スタミナ" },
-                new Stat { Key = "CrouchRest", Label = "しゃがみ回復", Short = "しゃがみ回復" },
-                new Stat { Key = "Strength", Label = "力", Short = "力" },
+                new Stat { Key = "Stamina", Label = "スタミナ" },
+                new Stat { Key = "CrouchRest", Label = "しゃがみ回復" },
+                new Stat { Key = "Strength", Label = "力" },
             },
             new[] // 戦闘: 体力・移動系
             {
-                new Stat { Key = "Health", Label = "体力", Short = "体力" },
-                new Stat { Key = "Speed", Label = "スプリント速度", Short = "速度", Cap = () => SpeedCap.Value },
-                new Stat { Key = "Range", Label = "射程", Short = "射程" },
+                new Stat { Key = "Health", Label = "体力" },
+                new Stat { Key = "Speed", Label = "スプリント速度", Cap = () => SpeedCap.Value },
+                new Stat { Key = "Range", Label = "射程" },
             },
             new[] // 特殊: その他
             {
-                new Stat { Key = "ExtraJump", Label = "追加ジャンプ", Short = "ジャンプ" },
-                new Stat { Key = "TumbleWings", Label = "タンブルウイング", Short = "ウイング" },
-                new Stat { Key = "Launch", Label = "タンブル発射", Short = "発射", Cap = () => LaunchCap.Value },
+                new Stat { Key = "ExtraJump", Label = "追加ジャンプ" },
+                new Stat { Key = "TumbleWings", Label = "タンブルウイング" },
+                new Stat { Key = "Launch", Label = "タンブル発射", Cap = () => LaunchCap.Value },
             },
         };
 
@@ -112,8 +113,14 @@ namespace FloorRoles
             HostOnlyDeparture = cfg.Bind(Section, "出発はホストだけ", true, "トラックのモニター(チャット)で出発できるのをホストだけにする");
             PrerollLevel = cfg.Bind(Section, "次のマップを先に決める", true, "トラックに入った時点で次のマップを抽選し、モニターに出す");
             ShowOnMonitor = cfg.Bind(Section, "モニターに表示", true, "役職ごとの報酬をトラックのモニターに出す");
-            MonitorTextSize = cfg.Bind(Section, "モニターの文字の大きさ", 75,
-                new ConfigDescription("モニターに出す役職の説明の文字の大きさ(%)。下が見切れるなら小さくする", new AcceptableValueRange<int>(40, 100)));
+            MonitorTextSize = cfg.Bind(Section, "モニターの文字の大きさ(%)", 70,
+                new ConfigDescription("モニターに出す役職の説明の文字の大きさ。下が見切れるなら小さくする", new AcceptableValueRange<int>(40, 100)));
+            MonitorLineHeight = cfg.Bind(Section, "モニターの行の高さ(%)", 85,
+                new ConfigDescription("役職の説明の 1 行の高さ(ふつうの大きさの文字の行を 100 とする)。大きくすると行間が広がるが、下が見切れやすくなる",
+                    new AcceptableValueRange<int>(40, 150)));
+            MonitorBottomPadding = cfg.Bind(Section, "モニターの下の空行", 3,
+                new ConfigDescription("役職の説明のあとに入れる空行の数(画面の下の見えない部分に入る)。まだ下が見切れるなら増やす",
+                    new AcceptableValueRange<int>(0, 8)));
             RewardCount = cfg.Bind(Section, "報酬の数", 2,
                 new ConfigDescription("役職ごとの 3 種類のアップグレードから、いくつ抽選するか", new AcceptableValueRange<int>(1, 3)));
             RewardAmount = cfg.Bind(Section, "報酬の上がり幅", 1,
@@ -202,30 +209,38 @@ namespace FloorRoles
 
         private static string MonitorText()
         {
-            // モニターは 12 行まで(超えると上から消える)。日本語は折り返しやすく行も高いので、
-            // 1 行を短くして(なるべく折り返さない)、文字も小さめにする
+            // モニターは文章を 12 行まで残す(超えると上の行から消える)が、日本語だと画面に見えるのは 10 行ほどで、
+            // 下が見切れる。表示枠はホストの MOD からは変えられないので、送る文章だけで収める:
+            // - 役職の説明 + 末尾の空行で 11 行にする(税務官の名前の行と合わせて 12 行)。古い文章は全部押し出され、
+            //   画面には役職の説明だけが残る。見えない下の部分には末尾の空行が入る
+            // - 文字を小さめにして、行間を少し空ける
             string amount = RewardAmount.Value > 1 ? $"+{RewardAmount.Value}" : "";
             var lines = new List<string>();
             if (nextLevel)
             {
-                lines.Add("次: " + LevelName(nextLevel));
+                lines.Add("次のマップ: " + LevelName(nextLevel));
             }
-            lines.Add("オーブ1個をスロット1~3へ");
-            if (RewardDice.Value)
-            {
-                lines.Add($"1D100 {DiceCriticalMax.Value}以下:{CriticalRewardCount.Value}つ {DiceFumbleMin.Value}以上:{FumbleRewardCount.Value}つ");
-            }
+            lines.Add("ロールオーブ1個をスロット1~3へ");
             for (int role = 0; role < 3; role++)
             {
-                lines.Add($"{role + 1}{RoleNames[role]} " + string.Join("・", draws[role].Select(s => s.Short + amount)));
+                lines.Add($"{role + 1} {RoleNames[role]}: " + string.Join("・", draws[role].Select(s => s.Label + amount)));
             }
-            int size = MonitorTextSize.Value;
-            if (size >= 100)
+            if (RewardDice.Value)
             {
-                return string.Join("\n", lines);
+                lines.Add($"出発時ダイス {DiceCriticalMax.Value}以下:{CriticalRewardCount.Value}つ {DiceFumbleMin.Value}以上:{FumbleRewardCount.Value}つ");
             }
-            // 上から 1 行ずつ消えても大きさが戻らないように、行ごとに大きさを指定する
-            return string.Join("\n", lines.Select(l => $"<size={size}%>{l}</size>"));
+            int padding = Mathf.Max(MonitorBottomPadding.Value, 11 - lines.Count);
+            for (int i = 0; i < padding; i++)
+            {
+                lines.Add(" ");
+            }
+
+            // 上から 1 行ずつ消えても効き目が残るように、行ごとに大きさと行の高さを指定する。
+            // 行の高さは改行の時点で効くので閉じずに続け、最後の行の終わりで閉じる(あとから来る文章に残さない)
+            int size = MonitorTextSize.Value;
+            string lineHeight = $"<line-height={MonitorLineHeight.Value}%>";
+            var text = string.Join("\n", lines.Select(l => size >= 100 ? lineHeight + l : $"{lineHeight}<size={size}%>{l}</size>"));
+            return text + "</line-height>";
         }
 
         private static List<Stat>[] DrawRewards()
