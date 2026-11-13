@@ -87,6 +87,8 @@ namespace FloorRoles
         };
 
         private static readonly string[] RoleNames = { "運搬", "戦闘", "特殊" };
+        /// <summary>役職特性の名前(モニターに出す)。</summary>
+        internal static readonly string[] TraitNames = { "引っ越し用運搬ロボ", "避雷針", "ギャンブラー" };
 
         // ---- このトラックの状態 ----
         private static int lobbyGeneration = -1;
@@ -228,7 +230,7 @@ namespace FloorRoles
             lines.Add("ロールオーブ1個をスロット1~3へ");
             for (int role = 0; role < 3; role++)
             {
-                lines.Add($"{role + 1} {RoleNames[role]}: {string.Join(", ", RoleStats[role].Select(s => s.Label))} の中からランダムに{CountRange(RoleStats[role].Length)}個{amount}");
+                lines.Add($"{role + 1} {RoleNames[role]}{TraitLabel(role)}: {string.Join(", ", RoleStats[role].Select(s => s.Label))} の中からランダムに{CountRange(RoleStats[role].Length)}個{amount}");
             }
             if (RewardDice.Value)
             {
@@ -268,6 +270,12 @@ namespace FloorRoles
             string lineHeight = $"<line-height={MonitorLineHeight.Value}%>";
             var text = string.Join("\n", lines.Select(l => size >= 100 ? lineHeight + l : $"{lineHeight}<size={size}%>{l}</size>"));
             return text + "</line-height>";
+        }
+
+        /// <summary>役職特性が有効なら「[特性名]」。</summary>
+        private static string TraitLabel(int role)
+        {
+            return Traits.Enabled != null && Traits.Enabled.Value ? $"[{TraitNames[role]}]" : "";
         }
 
         /// <summary>もらえる数の範囲(報酬ダイスの結果ごとの数の、最小〜最大。候補の数より多くはもらえない)。</summary>

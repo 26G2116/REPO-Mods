@@ -146,6 +146,316 @@ namespace FloorRoles
             return valuable;
         }
 
+        /// <summary>
+        /// 金袋を、決まった金額(ドル)で出す。auto = true なら金額に応じた大きさ
+        /// (抽出口の余りの金袋と同じ: 10,000 超で大、5,000 超で中、それ以下は小)、false なら小。
+        /// </summary>
+        internal static ValuableObject SpawnMoneyBagDollars(Vector3 position, int dollars, bool auto)
+        {
+            var assets = AssetManager.instance;
+            if (!assets || dollars <= 0)
+            {
+                return null;
+            }
+            var prefab = assets.surplusValuableSmall;
+            if (auto && dollars > 10000)
+            {
+                prefab = assets.surplusValuableBig;
+            }
+            else if (auto && dollars > 5000)
+            {
+                prefab = assets.surplusValuableMedium;
+            }
+            if (!prefab)
+            {
+                return null;
+            }
+            var spawned = SpawnRoomObject("Valuables/" + prefab.name, prefab, position, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
+            var valuable = spawned ? spawned.GetComponent<ValuableObject>() : null;
+            if (valuable)
+            {
+                valuable.dollarValueOverride = dollars;
+            }
+            return valuable;
+        }
+
+        /// <summary>金袋(抽出口の余りの金袋と同じもの)か。</summary>
+        internal static bool IsMoneyBag(ValuableObject valuable)
+        {
+            return valuable && valuable.GetComponent<SurplusValuable>();
+        }
+
+        /// <summary>金袋(大)か。</summary>
+        internal static bool IsBigMoneyBag(ValuableObject valuable)
+        {
+            var big = AssetManager.instance ? AssetManager.instance.surplusValuableBig : null;
+            return IsMoneyBag(valuable) && big && valuable.name.StartsWith(big.name, StringComparison.Ordinal);
+        }
+
+        // ---- 美術館の卵(爆発に使う) ----
+
+        private static string eggPath;
+        private static GameObject eggPrefab;
+
+        private static bool FindEgg()
+        {
+            if (eggPrefab)
+            {
+                return true;
+            }
+            var run = RunManager.instance;
+            if (!run || run.levels == null)
+            {
+                return false;
+            }
+            foreach (var level in run.levels)
+            {
+                if (!level || level.ValuablePresets == null)
+                {
+                    continue;
+                }
+                foreach (var preset in level.ValuablePresets)
+                {
+                    if (!preset)
+                    {
+                        continue;
+                    }
+                    var lists = new[] { preset.tiny, preset.small, preset.medium, preset.big, preset.wide, preset.tall, preset.veryTall };
+                    foreach (var list in lists)
+                    {
+                        if (list == null)
+                        {
+                            continue;
+                        }
+                        foreach (var reference in list)
+                        {
+                            if (reference == null || string.IsNullOrEmpty(reference.PrefabName) ||
+                                reference.PrefabName.IndexOf("Egg", StringComparison.OrdinalIgnoreCase) < 0)
+                            {
+                                continue;
+                            }
+                            var prefab = reference.Prefab;
+                            if (prefab && prefab.GetComponent<ValuableEgg>())
+                            {
+                                eggPrefab = prefab;
+                                eggPath = reference.ResourcePath;
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            Plugin.Log.LogWarning("美術館の卵が見つかりませんでした(爆発できません)");
+            return false;
+        }
+
+        /// <summary>美術館の卵を 1 個出して、すぐ爆発させる(ゲーム本来の卵の爆発。MOD なしの人の画面でも爆発する)。</summary>
+        internal static void ExplodeEgg(Vector3 position)
+        {
+            if (!FindEgg())
+            {
+                return;
+            }
+            var spawned = SpawnRoomObject(eggPath, eggPrefab, position, Quaternion.identity);
+            var egg = spawned ? spawned.GetComponent<ValuableEgg>() : null;
+            if (!egg)
+            {
+                return;
+            }
+            var valuable = egg.GetComponent<ValuableObject>();
+            if (valuable)
+            {
+                valuable.dollarValueOverride = 1; // すぐ消えるので、レベルの貴重品の合計をほとんど増やさない
+            }
+            Runner.Instance.StartCoroutine(ExplodeEggLater(egg));
+        }
+
+        private static System.Collections.IEnumerator ExplodeEggLater(ValuableEgg egg)
+        {
+            // 卵の準備(Start)が終わってから
+            float waited = 0f;
+            while (egg && egg.particleScriptExplosion == null && waited < 2f)
+            {
+                waited += Time.deltaTime;
+                yield return null;
+            }
+            yield return new WaitForSeconds(0.1f);
+            if (egg)
+            {
+                egg.SetState(ValuableEgg.EggState.Explode);
+            }
+        }
+
+        // ---- 覚醒した知識のキューブ ----
+
+        private const string CubePath = "Valuables/04 Big/Valuable Wizard Cube of Knowledge";
+
+        /// <summary>知識のキューブを出して、決まった金額で覚醒させる(ゲーム本来の覚醒の演出)。</summary>
+        internal static bool SpawnAwakenedCube(Vector3 position, int dollars)
+        {
+            var prefab = Resources.Load<GameObject>(CubePath);
+            if (!prefab)
+            {
+                Plugin.Log.LogWarning("知識のキューブが見つかりませんでした");
+                return false;
+            }
+            var spawned = SpawnRoomObject(CubePath, prefab, position, Quaternion.identity);
+            var cube = spawned ? spawned.GetComponent<ValuableCubeOfKnowledge>() : null;
+            if (!cube)
+            {
+                return false;
+            }
+            var valuable = cube.GetComponent<ValuableObject>();
+            if (valuable)
+            {
+                valuable.dollarValueOverride = dollars;
+            }
+            Runner.Instance.StartCoroutine(AwakenCubeLater(cube, dollars));
+            return true;
+        }
+
+        private static System.Collections.IEnumerator AwakenCubeLater(ValuableCubeOfKnowledge cube, int dollars)
+        {
+            yield return new WaitForSeconds(1f);
+            var valuable = cube ? cube.GetComponent<ValuableObject>() : null;
+            float waited = 0f;
+            while (cube && valuable && !valuable.dollarValueSet && waited < 5f)
+            {
+                waited += 0.1f;
+                yield return new WaitForSeconds(0.1f);
+            }
+            if (!cube)
+            {
+                yield break;
+            }
+            // 台座なしで覚醒させる。浮かぶ位置は台座の位置の平均なので、全部今の位置にしておく(動かすのはホストだけ)
+            var here = cube.rb ? cube.rb.position : cube.transform.position;
+            for (int i = 0; i < cube.boundPlatformPositions.Length; i++)
+            {
+                cube.boundPlatformPositions[i] = here;
+            }
+            var startScale = cube.transform.localScale;
+            var endScale = startScale * cube.awakenedSizeMultiplier;
+            float duration = Mathf.Max(0.01f, cube.awakenedMoveTime + cube.finalSpinTime);
+            if (SemiFunc.IsMultiplayer())
+            {
+                cube.photonView.RPC("AwakenRPC", RpcTarget.AllBuffered, dollars, startScale, endScale, PhotonNetwork.Time, duration);
+            }
+            else
+            {
+                cube.AwakenApply(dollars, startScale, endScale, Time.timeAsDouble, duration);
+            }
+        }
+
+        // ---- 起動済みのグレネード ----
+
+        private static Item explosiveGrenade;
+
+        private static Item ExplosiveGrenade()
+        {
+            if (explosiveGrenade)
+            {
+                return explosiveGrenade;
+            }
+            var stats = StatsManager.instance;
+            if (!stats)
+            {
+                return null;
+            }
+            foreach (var item in stats.itemDictionary.Values)
+            {
+                var prefab = item && item.prefab != null ? item.prefab.Prefab : null;
+                if (prefab && prefab.GetComponent<ItemGrenadeExplosive>())
+                {
+                    explosiveGrenade = item;
+                    return item;
+                }
+            }
+            Plugin.Log.LogWarning("グレネードが見つかりませんでした");
+            return null;
+        }
+
+        /// <summary>起動済みのグレネードを出す(数秒後に爆発する。持ち帰れない)。</summary>
+        internal static void SpawnActiveGrenade(Vector3 position)
+        {
+            var item = ExplosiveGrenade();
+            if (!item)
+            {
+                return;
+            }
+            var spawned = SpawnRoomObject(item.prefab.ResourcePath, item.prefab.Prefab, position, UnityEngine.Random.rotation);
+            var grenade = spawned ? spawned.GetComponent<ItemGrenade>() : null;
+            if (!grenade)
+            {
+                return;
+            }
+            SpawnedItems.Track(grenade.GetComponent<ItemAttributes>());
+            grenade.isSpawnedGrenade = true;
+            Runner.Instance.StartCoroutine(ActivateGrenadeLater(grenade));
+        }
+
+        private static System.Collections.IEnumerator ActivateGrenadeLater(ItemGrenade grenade)
+        {
+            float waited = 0f;
+            while (grenade && (!grenade.physGrabObject || !grenade.physGrabObject.spawned || grenade.rb == null || grenade.rb.isKinematic) && waited < 3f)
+            {
+                waited += Time.deltaTime;
+                yield return null;
+            }
+            if (!grenade)
+            {
+                yield break;
+            }
+            grenade.isSpawnedGrenade = true;
+            if (grenade.itemAttributes)
+            {
+                grenade.itemAttributes.blockExtraction = true;
+            }
+            var toggle = grenade.GetComponent<ItemToggle>();
+            if (toggle)
+            {
+                toggle.ToggleItem(true, -1);
+            }
+            if (grenade.rb)
+            {
+                var direction = Quaternion.Euler(UnityEngine.Random.Range(-60f, -20f), UnityEngine.Random.Range(-180f, 180f), 0f) * Vector3.forward;
+                grenade.rb.AddForce(direction * UnityEngine.Random.Range(2f, 5f), ForceMode.Impulse);
+            }
+        }
+
+        // ---- プレイヤーの状態(ホストで見る) ----
+
+        /// <summary>見ている向き(ホスト自身はカメラ、ほかの人は通信で届くカメラの向き)。</summary>
+        internal static Vector3 LookDirection(PlayerAvatar player)
+        {
+            if (!player)
+            {
+                return Vector3.forward;
+            }
+            if (player.isLocal && CameraAim.Instance)
+            {
+                return CameraAim.Instance.transform.forward;
+            }
+            return player.clientCameraRotation * Vector3.forward;
+        }
+
+        /// <summary>水平から上へ何度の向きを見ているか(真上 = 90)。</summary>
+        internal static float LookPitchUp(PlayerAvatar player)
+        {
+            var forward = LookDirection(player);
+            return 90f - Vector3.Angle(forward, Vector3.up);
+        }
+
+        internal static bool IsCrouching(PlayerAvatar player)
+        {
+            return player && (player.isCrouching || player.isCrawling);
+        }
+
+        internal static bool Alive(PlayerAvatar player)
+        {
+            return player && !player.deadSet && !player.isDisabled;
+        }
+
         /// <summary>まわりの物にめり込まない、床の上の位置を探す。</summary>
         internal static Vector3 FreeSpot(Vector3 center, float minRadius, float maxRadius, float clearance = 0.35f)
         {
@@ -185,6 +495,55 @@ namespace FloorRoles
         }
     }
 
+    /// <summary>
+    /// MOD が出したアイテム(グレネードなど)を「購入したアイテム」の記録から消す。
+    /// 出したアイテムは、ゲームが名前を付けるときに購入したアイテムの一覧へ足してしまい、次のレベルのトラックに出てくるため。
+    /// </summary>
+    internal static class SpawnedItems
+    {
+        private class Entry
+        {
+            internal ItemAttributes Attributes;
+            internal HashSet<string> NamesBefore;
+        }
+
+        private static readonly List<Entry> Entries = new List<Entry>();
+
+        internal static void Track(ItemAttributes attributes)
+        {
+            if (!attributes)
+            {
+                return;
+            }
+            var stats = StatsManager.instance;
+            Entries.Add(new Entry
+            {
+                Attributes = attributes,
+                NamesBefore = stats ? new HashSet<string>(stats.item.Keys) : new HashSet<string>(),
+            });
+        }
+
+        internal static void Cleanup()
+        {
+            var stats = StatsManager.instance;
+            if (stats)
+            {
+                foreach (var entry in Entries)
+                {
+                    // 壊れたアイテムでも名前は読める(Unity の null 判定は使わない)
+                    string name = (object)entry.Attributes != null ? entry.Attributes.instanceName : null;
+                    if (string.IsNullOrEmpty(name) || entry.NamesBefore.Contains(name))
+                    {
+                        continue;
+                    }
+                    stats.item.Remove(name);
+                    stats.itemStatBattery.Remove(name);
+                }
+            }
+            Entries.Clear();
+        }
+    }
+
     /// <summary>レベルが変わるたびに増える番号。各機能が「このレベルでもう処理したか」を覚えるのに使う。</summary>
     internal static class Phase
     {
@@ -203,6 +562,8 @@ namespace FloorRoles
                         Roles.OnLeavingLevel(_completedLevel && !_levelFailed);
                         ShopBudget.OnLeavingLevel();
                         Duel.OnLeavingLevel();
+                        Traits.OnLeavingLevel();
+                        SpawnedItems.Cleanup();
                     }
                 }
                 catch (Exception e)
@@ -249,6 +610,7 @@ namespace FloorRoles
             Guard("役職", Roles.Tick);
             Guard("所持金", ShopBudget.Tick);
             Guard("決闘", Duel.Tick);
+            Guard("役職特性", Traits.Tick);
         }
 
         private static void Guard(string label, Action action)

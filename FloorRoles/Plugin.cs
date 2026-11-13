@@ -14,6 +14,7 @@ namespace FloorRoles
     ///   死ぬと所持金を落とし、タンブルすると 1K ずつ落とす(譲渡)。同じ商品を 2 人でつかみ続けると決闘
     /// - 店のアップグレードの品ぞろえを決まった数にする
     /// - チャットで「/r」と打つと 1D100 を振る(1〜5 クリティカルで HP 100 回復、96〜100 ファンブルで自爆)
+    /// - レベル中は役職特性が使える(運搬: 引っ越し用運搬ロボ / 戦闘: 避雷針 / 特殊: ギャンブラー)
     /// 全部ホストが計算し、ゲーム本来の通信だけを使うので、ホストだけ導入すれば MOD なしの参加者にも効く。
     /// </summary>
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -21,7 +22,7 @@ namespace FloorRoles
     {
         public const string PluginGuid = "shunm.FloorRoles";
         public const string PluginName = "FloorRoles";
-        public const string PluginVersion = "0.2.8";
+        public const string PluginVersion = "0.3.0";
 
         internal static ManualLogSource Log;
         internal static ConfigEntry<bool> VerboseLog;
@@ -38,6 +39,7 @@ namespace FloorRoles
             Duel.Bind(Config);
             ShopUpgrades.Bind(Config);
             DiceRoll.Bind(Config);
+            Traits.Bind(Config);
 
             _harmony = new Harmony(PluginGuid);
             try

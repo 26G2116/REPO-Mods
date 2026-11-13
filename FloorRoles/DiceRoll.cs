@@ -67,7 +67,124 @@ namespace FloorRoles
             }
         }
 
+        /// <summary>ギャンブラーが振る前に言うセリフ(まわりにダイスを振ることを知らせる)。</summary>
+        private static readonly string[] GamblerLines =
+        {
+            "地獄の沙汰も運次第！",
+            "一か八か、勝負！",
+            "運命のダイス、いくぜ！",
+            "女神よ、微笑め！",
+            "人生はギャンブルだ！",
+            "勝てば天国、負ければ地獄！",
+            "ツキはこっちにある！",
+            "賽は投げられた！",
+            "全部賭ける！",
+            "ここが勝負どころ！",
+        };
+
         private static IEnumerator Roll(PlayerAvatar player)
+        {
+            if (Traits.IsGambler(player))
+            {
+                return GamblerRoll(player);
+            }
+            return NormalRoll(player);
+        }
+
+        /// <summary>
+        /// ギャンブラー(特殊の役職特性)の /r。クリティカルで範囲内の味方全員を回復、ファンブルで範囲内の味方全員が自爆、
+        /// 50 以下で金袋(小)を出し、それ以外は(出た目 / 2、切り上げ)のダメージを受ける。
+        /// </summary>
+        private static IEnumerator GamblerRoll(PlayerAvatar player)
+        {
+            int generation = Phase.Generation;
+            try
+            {
+                Net.Speak(player, GamblerLines[Random.Range(0, GamblerLines.Length)]);
+                yield return new WaitForSeconds(2f);
+                if (!Net.Alive(player) || generation != Phase.Generation)
+                {
+                    yield break;
+                }
+                Net.Speak(player, "1D100 Start!");
+                yield return new WaitForSeconds(1.5f);
+                if (!Net.Alive(player) || generation != Phase.Generation)
+                {
+                    yield break;
+                }
+                int value = Random.Range(1, 101);
+                bool critical = value <= CriticalMax.Value;
+                bool fumble = !critical && value >= FumbleMin.Value;
+                Plugin.Verbose($"1D100(ギャンブラー): {Net.Name(player)} = {value}");
+                float radius = Traits.GamblerRadius.Value;
+                if (critical)
+                {
+                    Net.Speak(player, $"{value}! critical!");
+                    foreach (var other in PlayersAround(player, radius))
+                    {
+                        other.playerHealth.HealOther(Traits.GamblerHeal.Value, true);
+                    }
+                }
+                else if (fumble)
+                {
+                    Net.Speak(player, $"{value}! fumble!");
+                    yield return new WaitForSeconds(1.5f);
+                    if (!player || generation != Phase.Generation)
+                    {
+                        yield break;
+                    }
+                    foreach (var other in PlayersAround(player, radius))
+                    {
+                        Net.Kill(other);
+                    }
+                }
+                else if (value <= 50)
+                {
+                    int dollars = Traits.GamblerBag.Value;
+                    Net.Speak(player, $"{value}! ${dollars:N0}ゲット！");
+                    if (dollars > 0)
+                    {
+                        var center = player.transform.position + Vector3.up * 1f;
+                        Net.SpawnMoneyBagDollars(Net.FreeSpot(center, 0.6f, 1.2f), dollars, false);
+                    }
+                }
+                else
+                {
+                    int damage = Mathf.CeilToInt(value / 2f);
+                    Net.Speak(player, $"{value}! {damage}ダメージ！");
+                    yield return new WaitForSeconds(0.5f);
+                    if (Net.Alive(player) && generation == Phase.Generation)
+                    {
+                        player.playerHealth.HurtOther(damage, Vector3.zero, false, -1);
+                    }
+                }
+            }
+            finally
+            {
+                Rolling.Remove(player);
+            }
+        }
+
+        /// <summary>振った人のまわりにいる、生きている味方(本人を含む)。</summary>
+        private static List<PlayerAvatar> PlayersAround(PlayerAvatar player, float radius)
+        {
+            var result = new List<PlayerAvatar>();
+            if (!player)
+            {
+                return result;
+            }
+            var center = player.transform.position;
+            foreach (var other in SemiFunc.PlayerGetList())
+            {
+                if (Net.Alive(other) && other.playerHealth && Vector3.Distance(center, other.transform.position) <= radius)
+                {
+                    result.Add(other);
+                }
+            }
+            return result;
+        }
+
+        private static IEnumerator NormalRoll(PlayerAvatar player)
         {
             try
             {
